@@ -34,6 +34,6 @@ Small decisions:
 - Default `BigAutoField` pks.
 - `ping` task logs "pong"; `make ping` defers it.
 - One-off `migrate` service; app/worker/db `restart: unless-stopped`.
-- whitenoise for static; collectstatic at image build.
+- whitenoise for static; collectstatic at image build into `/opt/static`.
 - Trusts `X-Forwarded-Proto` from the host nginx.
 - Dev port bound to `127.0.0.1` only.

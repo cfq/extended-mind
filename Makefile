@@ -3,7 +3,7 @@ RUN = $(COMPOSE) run --rm app
 PROJECT = label=com.docker.compose.project=extended-mind
 DATA_DIR ?= ./data
 
-.PHONY: lock build up down logs migrate createsuperuser shell collectstatic ping test lint format
+.PHONY: lock build up down logs migrate createsuperuser shell ping test lint format
 .PHONY: nuke nuke-ps nuke-network nuke-volumes nuke-images nuke-data
 
 lock:
@@ -29,10 +29,6 @@ createsuperuser:
 
 shell:
 	$(RUN) python manage.py shell
-
-# Dev bind mount hides the image's collected files; needed when DEBUG=false.
-collectstatic:
-	$(RUN) python manage.py collectstatic --noinput
 
 ping:
 	$(RUN) python manage.py procrastinate defer extended_mind.tasks.ping
