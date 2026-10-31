@@ -9,8 +9,5 @@ services:
       - .:/app
 
   worker:
-    build:
-      args:
-        DEV: "true"
     volumes:
       - .:/app
