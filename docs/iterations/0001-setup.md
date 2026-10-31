@@ -8,26 +8,19 @@ Docker, Python, Django, etc. Get it all ready for me to configure.
 
 ## Claude Notes
 
-Proposed scope (needs your OK):
-- Dockerfile: one image for app + worker.
+Scope (approved):
+- Dockerfile: one image for app + worker. Python 3.14, uv.
 - `compose.yaml` + dev override: `app`, `worker`, `db`.
-- Django project skeleton, settings from env vars.
-- Ninja mounted at `/api/`, one `GET /api/health`.
+- Django project `extended_mind`, settings via django-environ.
+- Ninja at `/api/v1/`, one `GET /api/v1/health`.
 - Procrastinate wired in, worker runs a no-op task.
 - Admin at `/admin/`.
+- ruff, pytest-django.
 - `.env.example`.
-- Commands for you to run: build, up, migrate, createsuperuser.
+- Makefile: build, up, migrate, createsuperuser, test, lint.
 
-Deferred to later iterations:
+Deferred:
 - `proxy`, observability stack.
 - React SPA + Node build stage.
-- Extraction tools in the image (ffmpeg, Playwright, OCR…).
-
-Questions:
-- Python version: 3.13 or 3.14?
-- Package manager: uv?
-- Django project/package name: `extended_mind`?
-- Settings: plain `os.environ` or `django-environ`?
-- Lint/format: ruff? Tests: pytest + pytest-django?
-- Task runner for commands: Makefile, justfile, or none?
-- CI (GitHub Actions) now or later?
+- Extraction tools in the image.
+- CI.
