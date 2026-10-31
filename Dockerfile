@@ -16,5 +16,9 @@ RUN uv sync --locked $([ "$DEV" = "true" ] || echo --no-dev)
 
 COPY . .
 
+# Dummy env: settings need these to load, collectstatic doesn't use them.
+RUN SECRET_KEY=build DATABASE_URL=sqlite://:memory: \
+    python manage.py collectstatic --noinput
+
 EXPOSE 8000
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
