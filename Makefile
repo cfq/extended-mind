@@ -57,7 +57,7 @@ nuke-images: nuke-ps
 
 # Postgres files are owned by the container user, so delete from a container.
 nuke-data: nuke-ps
-	@read -p "Delete $(DATA_DIR)/postgres? [y/N] " a && [ "$$a" = y ]
+	@printf "Delete $(DATA_DIR)/postgres? [y/N] " && read a && [ "$$a" = y ]
 	docker run --rm -v $(abspath $(DATA_DIR)):/data postgres:18 rm -rf /data/postgres
 
 nuke: nuke-data nuke-network nuke-volumes nuke-images
