@@ -36,4 +36,4 @@ Small decisions:
 - One-off `migrate` service; app/worker/db `restart: unless-stopped`.
 - whitenoise for static; collectstatic at image build into `/opt/static`.
 - Trusts `X-Forwarded-Proto` from the host nginx.
-- Dev port bound to `127.0.0.1` only.
+- Dev port 8000 open on all interfaces (cfq's call; DEBUG=true is public).
