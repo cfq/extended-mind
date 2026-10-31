@@ -3,9 +3,10 @@ name: extended-mind
 x-app: &app
   image: extended-mind
   env_file: .env
+  restart: unless-stopped
   depends_on:
-    db:
-      condition: service_healthy
+    migrate:
+      condition: service_completed_successfully
 
 services:
   app:
@@ -21,9 +22,21 @@ services:
     command: ["python", "manage.py", "procrastinate", "worker"]
     networks: [backend, egress]
 
+  # One-off: applies migrations, then exits.
+  migrate:
+    image: extended-mind
+    pull_policy: never
+    env_file: .env
+    command: ["python", "manage.py", "migrate", "--noinput"]
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [backend]
+
   db:
     image: postgres:18
     env_file: .env
+    restart: unless-stopped
     volumes:
       - ${DATA_DIR:-./data}/postgres:/var/lib/postgresql
     healthcheck:

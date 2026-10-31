@@ -11,3 +11,7 @@ services:
   worker:
     volumes:
       - .:/app
+
+  migrate:
+    volumes:
+      - .:/app
