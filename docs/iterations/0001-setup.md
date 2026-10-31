@@ -24,3 +24,12 @@ Deferred:
 - React SPA + Node build stage.
 - Extraction tools in the image.
 - CI.
+- Production web server (runserver for now).
+
+Small decisions:
+- Project package is also the only Django app (`extended_mind`), so Procrastinate finds `tasks.py`.
+- venv at `/opt/venv`, so the dev bind mount doesn't hide it.
+- Dev deps in the image only with `DEV=true` (dev override).
+- Postgres data bind-mounted to `${DATA_DIR:-./data}/postgres`, not a named volume.
+- Default `BigAutoField` pks.
+- `ping` task logs "pong"; `make ping` defers it.
