@@ -1,0 +1,52 @@
+name: extended-mind
+
+x-app: &app
+  image: extended-mind
+  env_file: .env
+  restart: unless-stopped
+  depends_on:
+    migrate:
+      condition: service_completed_successfully
+
+services:
+  app:
+    <<: *app
+    build:
+      context: .
+    networks: [web, backend]
+
+  # Uses the image built by app.
+  worker:
+    <<: *app
+    pull_policy: never
+    command: ["python", "manage.py", "procrastinate", "worker"]
+    networks: [backend, egress]
+
+  # One-off: applies migrations, then exits.
+  migrate:
+    image: extended-mind
+    pull_policy: never
+    env_file: .env
+    command: ["python", "manage.py", "migrate", "--noinput"]
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [backend]
+
+  db:
+    image: postgres:18
+    env_file: .env
+    restart: unless-stopped
+    volumes:
+      - ${DATA_DIR:-./data}/postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      retries: 10
+    networks: [backend]
+
+networks:
+  web: {}
+  backend:
+    internal: true
+  egress: {}

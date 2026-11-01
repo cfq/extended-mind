@@ -1,0 +1,31 @@
+[project]
+name = "extended-mind"
+version = "0.1.0"
+requires-python = ">=3.14"
+dependencies = [
+    "django>=6.0",
+    "django-environ>=0.12",
+    "django-ninja>=1.4",
+    "procrastinate>=3.0",
+    "psycopg[binary,pool]>=3.2",
+    "whitenoise>=6.8",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-django>=4.9",
+    "ruff>=0.14",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "extended_mind.settings"
+
+[tool.ruff]
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
