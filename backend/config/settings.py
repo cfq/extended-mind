@@ -20,7 +20,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "procrastinate.contrib.django",
-    "extended_mind",
+    "apps.core",
 ]
 
 MIDDLEWARE = [
@@ -34,8 +34,8 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = "extended_mind.urls"
-WSGI_APPLICATION = "extended_mind.wsgi.application"
+ROOT_URLCONF = "config.urls"
+WSGI_APPLICATION = "config.wsgi.application"
 
 TEMPLATES = [
     {

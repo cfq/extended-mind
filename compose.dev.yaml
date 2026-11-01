@@ -1,17 +1,23 @@
+# Containers run as root; keep root-owned caches out of the bind mount.
+x-dev: &dev
+  volumes:
+    - .:/app
+  environment:
+    PYTHONDONTWRITEBYTECODE: "1"
+    PYTEST_ADDOPTS: "-p no:cacheprovider"
+    RUFF_NO_CACHE: "true"
+
 services:
   app:
+    <<: *dev
     build:
       args:
         DEV: "true"
     ports:
       - "8000:8000"
-    volumes:
-      - .:/app
 
   worker:
-    volumes:
-      - .:/app
+    <<: *dev
 
   migrate:
-    volumes:
-      - .:/app
+    <<: *dev

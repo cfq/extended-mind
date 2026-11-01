@@ -13,6 +13,7 @@ services:
     <<: *app
     build:
       context: .
+      dockerfile: docker/Dockerfile
     networks: [web, backend]
 
   # Uses the image built by app.

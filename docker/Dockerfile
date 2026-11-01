@@ -8,13 +8,13 @@ ENV PYTHONUNBUFFERED=1 \
     UV_PROJECT_ENVIRONMENT=/opt/venv \
     PATH="/opt/venv/bin:$PATH"
 
-WORKDIR /app
+WORKDIR /app/backend
 
 ARG DEV=false
-COPY pyproject.toml uv.lock ./
+COPY backend/pyproject.toml backend/uv.lock ./
 RUN uv sync --locked $([ "$DEV" = "true" ] || echo --no-dev)
 
-COPY . .
+COPY . /app
 
 # Dummy env: settings need these to load, collectstatic doesn't use them.
 RUN SECRET_KEY=build DATABASE_URL=sqlite://:memory: \

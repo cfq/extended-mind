@@ -7,7 +7,7 @@ DATA_DIR ?= ./data
 .PHONY: nuke nuke-ps nuke-network nuke-volumes nuke-images nuke-data
 
 lock:
-	uv lock
+	cd backend && uv lock
 
 build:
 	$(COMPOSE) build
@@ -31,7 +31,7 @@ shell:
 	$(RUN) python manage.py shell
 
 ping:
-	$(RUN) python manage.py procrastinate defer extended_mind.tasks.ping
+	$(RUN) python manage.py procrastinate defer apps.core.tasks.ping
 
 test:
 	$(RUN) pytest
