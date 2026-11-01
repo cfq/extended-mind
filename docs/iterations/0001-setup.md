@@ -1,13 +1,5 @@
 # Iteration 0001 - Setup
 
-Setup the system as defined in the SPECs.
-
-Docker, Python, Django, etc. Get it all ready for me to configure.
-
----
-
-## Claude Notes
-
 Scope (approved):
 - Dockerfile: one image for app + worker. Python 3.14, uv.
 - `compose.yaml` + dev override: `app`, `worker`, `db`.
