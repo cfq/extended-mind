@@ -1,0 +1,148 @@
+:root {
+  --bg: #f6f5f2;
+  --surface: #ffffff;
+  --text: #1d1d1b;
+  --muted: #6b6a66;
+  --border: #dddbd5;
+  --accent: #2f5d50;
+  --accent-text: #ffffff;
+  --error: #a33a2c;
+
+  font-family: system-ui, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161615;
+    --surface: #1f1f1d;
+    --text: #ecebe7;
+    --muted: #9b9a95;
+    --border: #34332f;
+    --accent: #7fb7a4;
+    --accent-text: #10201b;
+    --error: #e5826f;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+a {
+  color: var(--accent);
+}
+
+h1 {
+  margin: 0 0 1rem;
+  font-size: 1.5rem;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.header nav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.brand {
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.main {
+  padding: 2rem 1rem;
+  max-width: 48rem;
+  margin: 0 auto;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 24rem;
+  margin: 4rem auto;
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.main .card {
+  margin: 0;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+}
+
+input {
+  padding: 0.5rem;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+button {
+  padding: 0.5rem 1rem;
+  font: inherit;
+  color: var(--accent-text);
+  background: var(--accent);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+}
+
+p {
+  margin: 0;
+}
+
+.hint {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.error {
+  color: var(--error);
+}
+
+.notice {
+  color: var(--accent);
+}
+
+dl {
+  margin: 0;
+}
+
+dt {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+dd {
+  margin: 0 0 0.5rem;
+}

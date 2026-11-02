@@ -3,11 +3,15 @@ RUN = $(COMPOSE) run --rm app
 PROJECT = label=com.docker.compose.project=extended-mind
 DATA_DIR ?= ./data
 
-.PHONY: lock build up down logs migrate createsuperuser shell ping test lint format
+.PHONY: lock npm build up down logs makemigrations migrate createsuperuser shell ping test lint format
 .PHONY: nuke nuke-ps nuke-network nuke-volumes nuke-images nuke-data
 
 lock:
 	cd backend && uv lock
+
+# e.g. make npm ARGS="install some-lib"
+npm:
+	$(COMPOSE) run --rm --no-deps frontend npm $(ARGS)
 
 build:
 	$(COMPOSE) build
@@ -20,6 +24,10 @@ down:
 
 logs:
 	$(COMPOSE) logs -f
+
+# No deps: doesn't need the database.
+makemigrations:
+	$(COMPOSE) run --rm --no-deps app python manage.py makemigrations
 
 migrate:
 	$(RUN) python manage.py migrate

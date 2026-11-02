@@ -21,3 +21,17 @@ services:
 
   migrate:
     <<: *dev
+
+  # Vite dev server; proxies /api, /admin, /static to app.
+  # Runs as the host user so node_modules and lock files aren't root-owned.
+  frontend:
+    image: node:24-slim
+    user: "${UID:-1000}:${GID:-1000}"
+    working_dir: /frontend
+    command: ["sh", "-c", "npm install && npm run dev"]
+    volumes:
+      - ./frontend:/frontend
+    ports:
+      - "5173:5173"
+    depends_on: [app]
+    networks: [web]

@@ -59,3 +59,18 @@
   - plain CSS
   - vite
   - node build and dev in dockerfile and makefile
+
+---
+
+## Claude Notes
+
+Small decisions:
+- `GET /api/v1/users/{username}` added for the profile page (login required).
+- `SIGNUP_ENABLED` defaults to off; `.env.example` turns it on.
+- Signup validates via `full_clean` (email/username format + uniqueness) and Django's default password validators; errors joined into one message.
+- Login and signup endpoints don't check CSRF (Ninja only checks it on authenticated endpoints). Low risk for now.
+- Unknown routes behind login show "Not found"; logged out, everything redirects to `/login`.
+- Built SPA lives at `/opt/frontend`; whitenoise serves its assets, a Django catch-all serves `index.html`.
+- `frontend` dev container runs as UID 1000 (host user), `node_modules` lives in `frontend/` on the host.
+- Vite `allowedHosts: true` in dev, so any hostname works.
+- `/api/v1/users/` vs `/user/` pages: API resources plural, page URLs as specced.
