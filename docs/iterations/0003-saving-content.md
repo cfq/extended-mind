@@ -33,7 +33,18 @@ Saving content, starting with articles, and displaying them.
 
 ## Backend
   - App `apps/items/`.
-  - 
+  - Model `Item`: 
+    - `user`, `url`, 
+    - `status` (`pending` | `fetching` | `done` | `failed`), 
+    - `error`, 
+    - `title`, `description`, 
+    - `text` for extracted text, `markdown` for md
+    - `created_at`, `fetched_at`.
+  - API: `POST /api/v1/items`, `GET /api/v1/items`, `GET /api/v1/items/{id}`. 
+    - Own items only.
+    - Others' items return 404
+- Task `fetch_item(item_id)`: fetch, extract, save, update status. Deferred on create.
+
 
 ## Extractor
   - trafilatura 
@@ -59,12 +70,14 @@ Saving content, starting with articles, and displaying them.
 ## Claude Notes
 
 Proposed:
-- Model `Item`: `user`, `url`, `status` (`pending` | `fetching` | `done` | `failed`), `error`, `title`, `description`, `body` (readable HTML), `created_at`, `fetched_at`.
-- API: `POST /api/v1/items`, `GET /api/v1/items`, `GET /api/v1/items/{id}`. Own items only.
-- Task `fetch_item(item_id)`: fetch, extract, save, update status. Deferred on create.
-- Raw HTML to `${DATA_DIR}/files/{item_id}/raw.html`; new bind mount for app + worker.
-- Body is sanitised before saving, rendered as HTML on the item page.
-- New dependencies (need OK):
-  - `httpx`: fetching.
-  - `trafilatura`: metadata + article extraction.
-  - `nh3`: HTML sanitising.
+- `ItemSource` model, one row per file on disk:
+  - `item` (FK), `kind` (`html`, `image`, …), `filename`, `mime`, `size`, `sha256`, `created_at`.
+- Files in `${DATA_DIR}/item_sources/{item_uuid}/`, e.g. `raw.html`. Images, snapshots later.
+  - Deleting an item deletes its folder.
+  - No dedup across items.
+  - New bind mount for app + worker.
+- Raw HTML on disk only, not in the DB.
+  - Conflicts with "save original HTML too under `body`" in Extractor. Drop that line?
+- URLs: UUID base62-encoded (22 chars), e.g. `/item/1BvXqz8Rk2mN4pLwT6yHcE`. Or the plain UUID?
+- No nh3: react-markdown doesn't render raw HTML. Never add `rehype-raw`.
+- URL cleanup: strip `utm_*`, `fbclid`, `gclid` and similar before saving. Keep the original as submitted?
