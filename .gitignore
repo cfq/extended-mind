@@ -20,6 +20,7 @@ yarn-error.log*
 # Build artefacts
 node_modules
 dist
+.vite
 
 # Editor directories and files
 .vscode/*
@@ -31,7 +32,3 @@ dist
 *.njsproj
 *.sln
 *.sw?
-
-# Local Netlify folder
-.netlify
-
