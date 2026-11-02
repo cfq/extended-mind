@@ -29,7 +29,21 @@ Saving content, starting with articles, and displaying them.
   - /item/{id}
     - UUID - uuid.uuid7()
     - Same URL can be saved multiple times, a new fetch each time 
-    - 
+
+
+## Backend
+  - App `apps/items/`.
+  - 
+
+## Extractor
+  - trafilatura 
+    - extract(html, url=input_url, output_format="markdown", include_links=True, include_formatting=True, include_images=True)
+    - we'll deal with downloading images and replacing those links later
+    - extract text as well, and store both under `markdown` and `text` columns. Text for search.
+    - save original HTML too under `body`
+  - react-markdown renders on front-end.
+  - description, metadata, etc handled by trafilatura
+  - httpx2 
     
 
 ## Out of Scope
@@ -38,18 +52,13 @@ Saving content, starting with articles, and displaying them.
     - No polling, events or streaming yet. Changes visible on update
   - Article images
     - We'll do it together with image item saves
+  - JS-only pages (no body via plain HTTP): fail for now, Playwright later
 
 ---
 
 ## Claude Notes
 
-Questions:
-- Description: from page metadata (`og:description`), falling back to the start of the body?
-- Article images: download now, or text-only body for this iteration?
-- JS-only pages (no body via plain HTTP): fail for now, Playwright later?
-
 Proposed:
-- App `apps/items/`.
 - Model `Item`: `user`, `url`, `status` (`pending` | `fetching` | `done` | `failed`), `error`, `title`, `description`, `body` (readable HTML), `created_at`, `fetched_at`.
 - API: `POST /api/v1/items`, `GET /api/v1/items`, `GET /api/v1/items/{id}`. Own items only.
 - Task `fetch_item(item_id)`: fetch, extract, save, update status. Deferred on create.
