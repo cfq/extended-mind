@@ -11,6 +11,7 @@ SECRET_KEY = env("SECRET_KEY")
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SIGNUP_ENABLED = env.bool("SIGNUP_ENABLED", default=False)
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -21,7 +22,10 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "procrastinate.contrib.django",
     "apps.core",
+    "apps.users",
 ]
+
+AUTH_USER_MODEL = "users.User"
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -77,6 +81,11 @@ STORAGES = {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"
     },
 }
+
+# Built SPA, copied in by the Dockerfile. Absent in dev, where Vite serves it.
+FRONTEND_DIR = Path("/opt/frontend")
+if FRONTEND_DIR.is_dir():
+    WHITENOISE_ROOT = FRONTEND_DIR
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
