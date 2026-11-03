@@ -7,5 +7,5 @@ from config.api import api
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/v1/", api.urls),
-    re_path(r"^(?!(api|admin|static)(/|$)).*$", spa),
+    re_path(r"^(?!(?:api|admin|static)(?:/|$)).*$", spa),
 ]
