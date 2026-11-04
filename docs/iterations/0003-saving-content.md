@@ -90,3 +90,19 @@ Saving content, starting with articles, and displaying them.
   - Article images
     - We'll do it together with image item saves
   - JS-only pages (no body via plain HTTP): fail for now, Playwright later
+
+---
+
+## Claude Notes
+
+Small decisions:
+- `courlan` added as a direct dependency (already pulled in by trafilatura).
+- URL cleanup: courlan `normalize_url(strict=True)` (drops `utm_*`, fragments), plus our own list: `fbclid`, `gclid`, `dclid`, `msclkid`, `igsh`, `si`, `mc_cid`, `mc_eid`.
+- Only `http`/`https` URLs accepted on add.
+- No article content found → `failed` ("No article content found.").
+- Failed jobs re-raise, so Procrastinate records them as failed too.
+- Item folder removed via a `post_delete` signal, so admin deletes clean up too.
+- `ITEM_SOURCES_DIR` setting, default `/data/item_sources`; bind-mounted from `${DATA_DIR}/item_sources`.
+- `make nuke-data` also deletes `item_sources`, since files without DB rows are orphans.
+- After add, back to `/`. Delete asks for confirmation.
+- `/` no longer says "Welcome {username}"; it's the item list.

@@ -13,6 +13,7 @@ export function Layout() {
           Extended Mind
         </Link>
         <nav>
+          <Link to="/add">Add</Link>
           {user && <Link to={`/user/${user.username}`}>{user.username}</Link>}
           <button type="button" onClick={() => navigate("/logout")}>
             Log out

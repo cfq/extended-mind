@@ -2,7 +2,9 @@ import { Route, Routes } from "react-router";
 
 import { Layout } from "./components/Layout";
 import { RequireAuth } from "./components/RequireAuth";
-import { Home } from "./pages/Home";
+import { Add } from "./pages/Add";
+import { Dashboard } from "./pages/Dashboard";
+import { ItemPage } from "./pages/ItemPage";
 import { Login } from "./pages/Login";
 import { Logout } from "./pages/Logout";
 import { NotFound } from "./pages/NotFound";
@@ -17,7 +19,9 @@ export function App() {
       <Route path="/logout" element={<Logout />} />
       <Route element={<RequireAuth />}>
         <Route element={<Layout />}>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/add" element={<Add />} />
+          <Route path="/item/:id" element={<ItemPage />} />
           <Route path="/user/:username" element={<Profile />} />
           <Route path="*" element={<NotFound />} />
         </Route>
