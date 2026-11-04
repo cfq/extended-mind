@@ -4,6 +4,8 @@ x-app: &app
   image: extended-mind
   env_file: .env
   restart: unless-stopped
+  volumes:
+    - ${DATA_DIR:-./data}/item_sources:/data/item_sources
   depends_on:
     migrate:
       condition: service_completed_successfully
