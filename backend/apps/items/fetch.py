@@ -66,8 +66,9 @@ def download(url: str) -> tuple[str, str, str | None, bytes | None]:
 
 
 def source_filename(item: Item, title: str, description: str) -> str:
-    name = title or description or re.sub(r"^https?://", "", item.url)
-    slug = slugify(name)[:60].strip("-")
+    # slugify drops URL punctuation; make it word breaks: example.com/a → example-com-a
+    url = re.sub(r"[^\w-]+", " ", re.sub(r"^https?://", "", item.url))
+    slug = slugify(title or description or url)[:60].strip("-")
     return f"{slug}-{item.short_id}.html" if slug else f"{item.short_id}.html"
 
 

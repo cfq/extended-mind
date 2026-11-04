@@ -39,7 +39,7 @@ def make_item(url="https://example.com/some/post"):
     [
         ("A Title", "A description", "a-title"),
         ("", "A description", "a-description"),
-        ("", "", "examplecom-some-post"),
+        ("", "", "example-com-some-post"),
     ],
     ids=["title", "description", "url"],
 )
