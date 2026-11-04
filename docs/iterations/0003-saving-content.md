@@ -34,7 +34,7 @@ Saving content, starting with articles, and displaying them.
 ## Backend
   - App `apps/items/`.
   - Model `Item`: 
-    - `user`, `url`, 
+    - `user`, `url`, `url_submitted` 
     - `status` (`pending` | `fetching` | `done` | `failed`), 
     - `error`, 
     - `title`, `description`, 
@@ -44,6 +44,13 @@ Saving content, starting with articles, and displaying them.
     - Own items only.
     - Others' items return 404
 - Task `fetch_item(item_id)`: fetch, extract, save, update status. Deferred on create.
+- Retry item download `POST /api/v1/items/{id}/retry`
+  - Retry deletes old download, just the file being retried. 
+- Delete item `DELETE /api/v1/items/{id}`
+- `url` cleaned, final URL after redirects
+- `url_submitted` as it was submitted
+- Non-HTML URLs (a PDF or image link): just keep the URL, don't download
+  - after worker determines, set status to `done`
 
 
 ## Extractor
@@ -51,11 +58,30 @@ Saving content, starting with articles, and displaying them.
     - extract(html, url=input_url, output_format="markdown", include_links=True, include_formatting=True, include_images=True)
     - we'll deal with downloading images and replacing those links later
     - extract text as well, and store both under `markdown` and `text` columns. Text for search.
-    - save original HTML too under `body`
+    - raw html on disk
   - react-markdown renders on front-end.
   - description, metadata, etc handled by trafilatura
   - httpx2 
-    
+  - URL cleanup: strip `utm_*`, `fbclid`, `gclid` and similar before saving. 
+    - use lib `courlan`
+    - Keep the original as `url_submitted`.
+
+
+## Downloads
+  - `ItemSource` model, one row per file on disk:
+    - `item` (FK), `kind` (`html`, `image`, …), `filename`, `url`, `mime`, `size`, `sha256`, `created_at`.
+    - `url`: final URL after redirects
+  - Files in `${DATA_DIR}/item_sources/{item_uuid}/`.
+    - Deleting an item deletes its folder.
+    - No dedup across items.
+    - New bind mount for app + worker.
+  - Raw HTML on disk only, not in the DB.
+    - filename format: slugify(title or desc or url), max 60 chars + last 8-chars of ID
+  - URLs: UUID base62-encoded (22 chars), e.g. `/item/1BvXqz8Rk2mN4pLwT6yHcE`
+    - hand-write the base62 encode/decode
+  - Fetch limits,
+    - 60-second timeout, 50 MB maximum, a browser-like user agent.
+
 
 ## Out of Scope
   - Inbox
@@ -64,20 +90,3 @@ Saving content, starting with articles, and displaying them.
   - Article images
     - We'll do it together with image item saves
   - JS-only pages (no body via plain HTTP): fail for now, Playwright later
-
----
-
-## Claude Notes
-
-Proposed:
-- `ItemSource` model, one row per file on disk:
-  - `item` (FK), `kind` (`html`, `image`, …), `filename`, `mime`, `size`, `sha256`, `created_at`.
-- Files in `${DATA_DIR}/item_sources/{item_uuid}/`, e.g. `raw.html`. Images, snapshots later.
-  - Deleting an item deletes its folder.
-  - No dedup across items.
-  - New bind mount for app + worker.
-- Raw HTML on disk only, not in the DB.
-  - Conflicts with "save original HTML too under `body`" in Extractor. Drop that line?
-- URLs: UUID base62-encoded (22 chars), e.g. `/item/1BvXqz8Rk2mN4pLwT6yHcE`. Or the plain UUID?
-- No nh3: react-markdown doesn't render raw HTML. Never add `rehype-raw`.
-- URL cleanup: strip `utm_*`, `fbclid`, `gclid` and similar before saving. Keep the original as submitted?
