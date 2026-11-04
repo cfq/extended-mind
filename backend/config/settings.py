@@ -12,7 +12,7 @@ ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SIGNUP_ENABLED = env.bool("SIGNUP_ENABLED", default=False)
-ITEM_SOURCES_DIR = env.path("ITEM_SOURCES_DIR", default="/data/item_sources")
+ITEM_SOURCES_DIR = Path(env("ITEM_SOURCES_DIR", default="/data/item_sources"))
 
 INSTALLED_APPS = [
     "django.contrib.admin",
