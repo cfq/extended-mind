@@ -4,7 +4,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404
-from ninja import Router
+from ninja import Router, Status
 from ninja.errors import HttpError
 from ninja.security import django_auth
 
@@ -19,7 +19,7 @@ users_router = Router(auth=django_auth)
 def csrf(request):
     # Sets the csrftoken cookie the SPA sends back as X-CSRFToken.
     get_token(request)
-    return 204, None
+    return Status(204, None)
 
 
 @auth_router.post("/signup", response={201: UserOut})
@@ -34,7 +34,7 @@ def signup(request, data: SignupIn):
         raise HttpError(400, " ".join(e.messages)) from e
     user.set_password(data.password)
     user.save()
-    return 201, user
+    return Status(201, user)
 
 
 @auth_router.post("/login", response=UserOut)
@@ -49,7 +49,7 @@ def login_view(request, data: LoginIn):
 @auth_router.post("/logout", response={204: None})
 def logout_view(request):
     logout(request)
-    return 204, None
+    return Status(204, None)
 
 
 @auth_router.get("/session", response=UserOut)

@@ -2,7 +2,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 from django.http import Http404
 from django.shortcuts import get_object_or_404
-from ninja import Router
+from ninja import Router, Status
 from ninja.errors import HttpError
 from ninja.security import django_auth
 
@@ -34,7 +34,7 @@ def create_item(request, data: ItemIn):
         user=request.user, url=clean_url(submitted), url_submitted=submitted
     )
     fetch_item.defer(item_id=str(item.id))
-    return 201, item
+    return Status(201, item)
 
 
 @router.get("", response=list[ItemSummaryOut])
@@ -60,4 +60,4 @@ def retry_item(request, item_id: str):
 @router.delete("/{item_id}", response={204: None})
 def delete_item(request, item_id: str):
     get_item(request, item_id).delete()
-    return 204, None
+    return Status(204, None)
