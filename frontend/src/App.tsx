@@ -11,6 +11,7 @@ import { Logout } from "./pages/Logout";
 import { NotFound } from "./pages/NotFound";
 import { Profile } from "./pages/Profile";
 import { Save } from "./pages/Save";
+import { Settings } from "./pages/Settings";
 import { Signup } from "./pages/Signup";
 
 export function App() {
@@ -26,6 +27,7 @@ export function App() {
           <Route path="/add" element={<Add />} />
           <Route path="/item/:id" element={<ItemPage />} />
           <Route path="/user/:username" element={<Profile />} />
+          <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Route>

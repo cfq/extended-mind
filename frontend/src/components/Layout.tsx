@@ -15,6 +15,7 @@ export function Layout() {
         <nav>
           <Link to="/add">Add</Link>
           {user && <Link to={`/user/${user.username}`}>{user.username}</Link>}
+          <Link to="/settings">Settings</Link>
           <button type="button" onClick={() => navigate("/logout")}>
             Log out
           </button>

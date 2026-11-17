@@ -8,7 +8,7 @@ def frontend(settings, tmp_path):
     return tmp_path
 
 
-@pytest.mark.parametrize("path", ["/", "/login", "/item/abc", "/user/test", "/save"])
+@pytest.mark.parametrize("path", ["/", "/login", "/item/abc", "/user/test", "/save", "/settings"])
 def test_serves_index_for_app_routes(client, frontend, path):
     response = client.get(path)
 
