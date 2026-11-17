@@ -12,6 +12,9 @@ export type ItemSummary = {
   error: string;
   title: string;
   description: string;
+  author: string;
+  site_name: string;
+  published_at: string | null;
   created_at: string;
   fetched_at: string | null;
 };

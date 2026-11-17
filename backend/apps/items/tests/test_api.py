@@ -22,7 +22,9 @@ def url_for(item):
 def test_create(user_client, user, app):
     submitted = "https://example.com/post?utm_source=x&id=1"
 
-    response = user_client.post(ITEMS, {"url": submitted}, content_type="application/json")
+    response = user_client.post(
+        ITEMS, {"url": submitted}, content_type="application/json"
+    )
 
     assert response.status_code == 201
     body = response.json()
@@ -73,6 +75,7 @@ def test_detail(user_client, item):
     assert body["id"] == ids.encode(item.id)
     assert body["title"] == "Handles are the better pointers"
     assert body["markdown"]
+    assert {"author", "site_name", "published_at"} <= body.keys()
 
 
 @pytest.mark.parametrize(

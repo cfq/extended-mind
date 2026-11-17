@@ -1,5 +1,6 @@
 import hashlib
 import re
+from datetime import date
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import courlan
@@ -90,27 +91,42 @@ def save_html_source(item: Item, url: str, mime: str, body: bytes, filename: str
     )
 
 
+def parse_date(value: str | None) -> date | None:
+    try:
+        return date.fromisoformat(value) if value else None
+    except ValueError:
+        return None
+
+
+def extract(item: Item, html: str | bytes):
+    """Fills the item's content and metadata from a page's HTML."""
+    markdown = trafilatura.extract(
+        html,
+        url=item.url,
+        output_format="markdown",
+        include_links=True,
+        include_formatting=True,
+        include_images=True,
+    )
+    if not markdown:
+        raise FetchError("No article content found.")
+    metadata = trafilatura.extract_metadata(html, default_url=item.url)
+    item.title = (metadata and metadata.title) or ""
+    item.description = (metadata and metadata.description) or ""
+    item.author = (metadata and metadata.author) or ""
+    item.site_name = (metadata and metadata.sitename) or ""
+    item.published_at = parse_date(metadata and metadata.date)
+    item.markdown = markdown
+    item.text = trafilatura.extract(html, url=item.url, output_format="txt") or ""
+
+
 def fetch(item: Item):
     final_url, mime, encoding, body = download(item.url)
     item.url = clean_url(final_url)
 
     if body is not None:
         html = body.decode(encoding or "utf-8", errors="replace")
-        markdown = trafilatura.extract(
-            html,
-            url=item.url,
-            output_format="markdown",
-            include_links=True,
-            include_formatting=True,
-            include_images=True,
-        )
-        if not markdown:
-            raise FetchError("No article content found.")
-        metadata = trafilatura.extract_metadata(html, default_url=item.url)
-        item.title = (metadata and metadata.title) or ""
-        item.description = (metadata and metadata.description) or ""
-        item.markdown = markdown
-        item.text = trafilatura.extract(html, url=item.url, output_format="txt") or ""
+        extract(item, html)
         filename = source_filename(item, item.title, item.description)
         save_html_source(item, final_url, mime, body, filename)
 

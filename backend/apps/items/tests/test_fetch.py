@@ -1,6 +1,7 @@
 import functools
 import hashlib
 import uuid
+from datetime import date
 from urllib.parse import parse_qs, urlsplit
 
 import httpx2
@@ -10,6 +11,7 @@ from apps.items import fetch
 from apps.items.models import Item, ItemSource
 
 HANDLES = "01a1a417-604d-7679-9ecf-8b8932f3091c"
+EDEN = "01a1a42b-07df-70aa-81c9-8eb4c9cc7688"
 
 
 # clean_url
@@ -69,7 +71,9 @@ def transport(monkeypatch):
     """Route download() through a handler: transport(handler)."""
 
     def use(handler):
-        client = functools.partial(httpx2.Client, transport=httpx2.MockTransport(handler))
+        client = functools.partial(
+            httpx2.Client, transport=httpx2.MockTransport(handler)
+        )
         monkeypatch.setattr(fetch.httpx2, "Client", client)
 
     return use
@@ -201,3 +205,25 @@ def test_fetch_retry_replaces_source(item, item_sources_dir, downloads, fixture_
     assert new.pk != old.pk
     assert new.path.exists()
     assert list(item.sources_dir.iterdir()) == [new.path]
+
+
+def test_fetch_metadata(user, item_sources_dir, downloads, fixture_html):
+    item = Item.objects.create(user=user, url="https://x.test", url_submitted="x")
+    downloads(
+        "https://shkspr.mobi/blog/2026/11/ai-resistance/", body=fixture_html(EDEN)
+    )
+
+    fetch.fetch(item)
+
+    item.refresh_from_db()
+    assert item.author == "Terence Eden"
+    assert item.site_name == "Terence Eden’s Blog"
+    assert item.published_at == date(2026, 11, 3)
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [("2026-11-03", date(2026, 11, 3)), ("", None), (None, None), ("not a date", None)],
+)
+def test_parse_date(value, expected):
+    assert fetch.parse_date(value) == expected
