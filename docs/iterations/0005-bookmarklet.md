@@ -56,7 +56,7 @@ Small decisions:
 - `href` is set on the element, not in JSX: React refuses `javascript:` URLs.
 - `/save` saves once under StrictMode's double effect (ref guard).
 - Frontend tests use Node's built-in runner (`node --test`), which runs TypeScript as is: no new dependencies. 0004 left frontend tests out; this is the smallest way in. Vitest still open.
-- `make test-frontend` added; not on the allowlist yet.
+- `make test` runs both; `make test-backend` and `make test-frontend` run one each.
 - Test files excluded from `tsconfig.json`: they import `node:` modules and we have no `@types/node`.
 
 Not covered:
