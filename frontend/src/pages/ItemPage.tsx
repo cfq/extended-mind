@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router";
 
 import { ApiError, api } from "../lib/api";
 import { type Item, displayTitle, itemsKey, useItem } from "../lib/items";
+import { articleMeta } from "../lib/meta";
 import { NotFound } from "./NotFound";
 
 export function ItemPage() {
@@ -33,41 +34,57 @@ export function ItemPage() {
   if (!item) return null;
 
   return (
-    <article className="item">
-      <h1>{displayTitle(item)}</h1>
-      <p className="item-meta">
-        <a href={item.url} target="_blank" rel="noreferrer">
-          {item.url}
-        </a>
-        {item.status !== "done" && (
-          <span className={`status status-${item.status}`}>{item.status}</span>
-        )}
-      </p>
-      {item.status === "failed" && (
-        <p className="error">
-          {item.error}{" "}
-          <button type="button" onClick={() => retry.mutate()} disabled={retry.isPending}>
-            Retry
-          </button>
+    <article className="reading">
+      <header className="reading-header">
+        <h1 className="reading-title">{displayTitle(item)}</h1>
+        {item.author && <p className="reading-author">{item.author}</p>}
+        <p className="reading-meta">
+          {articleMeta(item).map((part) => (
+            <span key={part}>{part}</span>
+          ))}
+          <a href={item.url} target="_blank" rel="noreferrer">
+            Original
+          </a>
         </p>
-      )}
-      {item.description && <p className="item-description">{item.description}</p>}
-      {item.markdown && (
-        <div className="article">
-          {/* No raw HTML rendering: never add rehype-raw. */}
-          <Markdown>{item.markdown}</Markdown>
-        </div>
-      )}
-      <p>
-        <button
-          type="button"
-          className="danger"
-          disabled={remove.isPending}
-          onClick={() => confirm("Delete this item?") && remove.mutate()}
-        >
-          Delete
-        </button>
-      </p>
+      </header>
+
+      <div className="reading-column">
+        {item.status !== "done" && (
+          <p className="reading-meta reading-status">
+            <span>{item.status === "failed" ? item.error || "Failed" : `${item.status}…`}</span>
+            {item.status === "failed" && (
+              <button
+                type="button"
+                className="quiet"
+                onClick={() => retry.mutate()}
+                disabled={retry.isPending}
+              >
+                Retry
+              </button>
+            )}
+          </p>
+        )}
+
+        {item.description && <p className="reading-standfirst">{item.description}</p>}
+
+        {item.markdown && (
+          <div className="reading-body">
+            {/* No raw HTML rendering: never add rehype-raw. */}
+            <Markdown>{item.markdown}</Markdown>
+          </div>
+        )}
+
+        <footer className="reading-meta reading-footer">
+          <button
+            type="button"
+            className="quiet"
+            disabled={remove.isPending}
+            onClick={() => confirm("Delete this item?") && remove.mutate()}
+          >
+            Delete
+          </button>
+        </footer>
+      </div>
     </article>
   );
 }

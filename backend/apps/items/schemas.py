@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from ninja import Schema
 
@@ -17,6 +17,9 @@ class ItemSummaryOut(Schema):
     error: str
     title: str
     description: str
+    author: str
+    site_name: str
+    published_at: date | None
     created_at: datetime
     fetched_at: datetime | None
 
