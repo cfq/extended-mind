@@ -1,0 +1,62 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(make test)",
+      "Bash(make lint)",
+      "Bash(make format)",
+      "Bash(make build)",
+      "Bash(make up)",
+      "Bash(make down)",
+      "Bash(make migrate)",
+      "Bash(make makemigrations)",
+      "Bash(docker compose -f compose.yaml -f compose.dev.yaml ps *)",
+      "Bash(docker compose -f compose.yaml -f compose.dev.yaml logs *)",
+      "Bash(docker compose -f compose.yaml -f compose.dev.yaml run --rm app pytest *)",
+      "Bash(docker compose -f compose.yaml -f compose.dev.yaml run --rm app ruff *)",
+      "Bash(curl http://localhost:*)",
+      "Bash(curl * http://localhost:*)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "Bash(git branch *)",
+      "Bash(git fetch *)",
+      "Bash(git pull)",
+      "Bash(git switch *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push)",
+      "Bash(git push -u origin *)",
+      "Bash(gh pr create *)",
+      "Bash(gh pr view *)",
+      "Bash(gh pr list *)",
+      "Bash(gh pr checks *)"
+    ],
+    "ask": [
+      "Bash(make lock)",
+      "Bash(make npm *)",
+      "Bash(uv *)",
+      "Bash(pip *)",
+      "Bash(npm *)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Edit(./.env)",
+      "Read(~/.ssh/**)",
+      "Edit(~/.ssh/**)",
+      "Bash(make nuke*)",
+      "Bash(sudo *)",
+      "Bash(ssh-keygen *)",
+      "Bash(git push --force*)",
+      "Bash(git push -f *)",
+      "Bash(git push * --force*)",
+      "Bash(git push * main)",
+      "Bash(git push * main:*)",
+      "Bash(git push *:main)",
+      "Bash(git rebase *)",
+      "Bash(git reset --hard *)",
+      "Bash(gh pr merge *)",
+      "Bash(gh api *)"
+    ]
+  }
+}

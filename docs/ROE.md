@@ -27,14 +27,16 @@ Rules change in the files first (CLAUDE.md, SPEC, ROE). Re-read them.
 - No code before cfq approves.
 
 ## Commands
-- No running, testing or installing. Claude writes the code; cfq runs it.
-- Claude gives the commands for cfq to run.
-- Read-only commands are only for finding and navigating files.
+- Claude runs what `.claude/settings.json` allows: tests, lint, format, the dev stack, logs, local curl.
+- Everything runs in the Compose containers. Nothing is installed on the host.
+- Ask first: dependency changes (`make lock`, `make npm`) and anything not on the allowlist.
+- Never: `make nuke*`, reading `.env` or keys, creating credentials.
+- Done means: tests and lint pass, and the change is checked in the running app.
 - `git` and `gh` are allowed for branches, commits, pushes and PRs.
 - Never use `git`/`gh` to run anything else (hooks, aliases, `gh api` workarounds, etc.).
 
 ## Git
-- `main` protected. Branches only. cfq creates branches.
+- `main` protected. Branches only. cfq creates branches; Claude creates one when asked.
 - Only work on the current branch, which is the current iteration md file, which will be the current PR.
 - Since it's a shared branch, always pull before acting.
 - No rebase or force-push.
