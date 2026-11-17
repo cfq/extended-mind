@@ -3,48 +3,53 @@
 Rules change in the files first (CLAUDE.md, SPEC, ROE). Re-read them.
 
 ## Roles
-- cfq: owns product, writes iterations, approves, merges, also writes when needed.
-- Claude: implements, comments. GitHub user `cfq-agent` via `gh`.
+- cfq: owns product, agrees plans, reviews, merges, also writes when needed.
+- Claude: plans, implements, opens and updates PRs. GitHub user `cfq-agent` via `gh`.
 
 ## Output
 - Bare minimum everywhere: chat, docs, code.
-- Decisions are kept in the documents, and Claude reads and comments on them.
-- Claude doesn't generate or edit docs unless asked specifically.
 - Docs: headings and bullets. No filler.
+- Claude writes iteration docs; other docs only when asked.
+
+## Workflow
+1. cfq says to start a new feature. Claude creates the branch.
+2. cfq says what they want. Claude writes the plan as the iteration doc. Agreed in chat; no code until cfq says go.
+3. Claude builds, commits the iteration doc with the work, pushes, opens a PR with a full, explanatory description.
+4. cfq reviews in chat: what they like, what they don't. Claude makes the changes.
+5. Every change: new commit, push, PR description updated to match.
+6. cfq merges and says so. Claude switches to `main` and pulls.
+
+## Iterations
+- `docs/iterations/NNNNN-name.md`, free-form, no front matter. Branch name = iteration name.
+- Top: what cfq asked for, and what Claude explicitly extrapolated from it.
+- Bottom, after a `---` line, `## Claude Notes`: detailed decisions taken while planning and building.
+- One iteration at a time.
 
 ## Decisions
 - Ask first: architecture, dependencies, data model, API/URL shape, UX flows, anything hard to undo.
-- Small choices: Claude decides, records them in the iteration's Claude Notes.
-- Big enough to change the overall picture: Claude proposes the spec change in Claude Notes; cfq edits the spec.
+- These come up mid-build: stop and ask. Don't build and flag.
+- Small choices: Claude decides, records them in Claude Notes.
+- Big enough to change the overall picture: Claude proposes the spec change in chat; cfq edits the spec.
 - Spec is living: it describes current intent. Iterations are the record.
 - Unsure: ask.
-
-## Iterations
-- `docs/iterations/NNNNN-name.md`, free-form, no front matter, written by cfq.
-- Claude adds only at the bottom, under `## Claude Notes`, after a `---` line.
-- Branch name = iteration name.
-- One iteration at a time.
-- No code before cfq approves.
 
 ## Commands
 - Claude runs what `.claude/settings.json` allows: tests, lint, format, the dev stack, logs, local curl.
 - Everything runs in the Compose containers. Nothing is installed on the host.
 - Ask first: dependency changes (`make lock`, `make npm`) and anything not on the allowlist.
 - Never: `make nuke*`, reading `.env` or keys, creating credentials.
-- Done means: tests and lint pass, and the change is checked in the running app.
+- Done means: tests and lint pass, the build works, and the API is checked against the running app. cfq checks the UI.
 - `git` and `gh` are allowed for branches, commits, pushes and PRs.
 - Never use `git`/`gh` to run anything else (hooks, aliases, `gh api` workarounds, etc.).
 
 ## Git
-- `main` protected. Branches only. cfq creates branches; Claude creates one when asked.
-- Only work on the current branch, which is the current iteration md file, which will be the current PR.
-- Since it's a shared branch, always pull before acting.
-- No rebase or force-push.
+- `main` protected. Branches only.
+- Only work on the current branch: one iteration, one PR.
+- Always pull before acting.
+- No rebase or force-push. Review changes are new commits; cfq squash-merges.
 - No commit trailers.
-- Commit your doc edits alongside your work.
 - No secrets committed.
-- cfq merges. Claude might be asked to create a PR. 
-- Commit messages should follow the format from https://cbea.ms/git-commit/:
+- Commit messages follow https://cbea.ms/git-commit/:
   - Separate subject from body with a blank line
   - Limit the subject line to 50 characters
   - Capitalize the subject line
