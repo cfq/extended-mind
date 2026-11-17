@@ -9,7 +9,9 @@ export function Login() {
   const { data: user } = useSession();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const created = useLocation().state?.created;
+  const { created, from } = useLocation().state ?? {};
+  // Where RequireAuth sent us from, e.g. the bookmarklet's /save popup.
+  const next = from ?? "/";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -18,11 +20,11 @@ export function Login() {
       api<User>("/auth/login", { method: "POST", body: { email, password } }),
     onSuccess: (user) => {
       queryClient.setQueryData(sessionKey, user);
-      navigate("/");
+      navigate(next, { replace: true });
     },
   });
 
-  if (user) return <Navigate to="/" replace />;
+  if (user) return <Navigate to={next} replace />;
 
   function submit(e: FormEvent) {
     e.preventDefault();

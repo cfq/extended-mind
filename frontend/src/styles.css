@@ -221,3 +221,20 @@ button.danger {
   border: 1px solid var(--border);
   border-radius: 4px;
 }
+
+.main .card + .card {
+  margin-top: 1rem;
+}
+
+/* Looks like a button so it's obvious what to drag. */
+.bookmarklet {
+  display: inline-block;
+  padding: 0.4rem 0.75rem;
+  border: 1px dashed var(--accent);
+  border-radius: 6px;
+  cursor: grab;
+}
+
+.url {
+  overflow-wrap: anywhere;
+}
