@@ -11,8 +11,10 @@ from apps.items.fetch import clean_url
 from apps.items.models import Item
 from apps.items.schemas import ItemIn, ItemOut, ItemSummaryOut
 from apps.items.tasks import fetch_item
+from apps.users.auth import token_auth
 
-router = Router(auth=django_auth)
+# Bearer token for the iOS Shortcut and scripts, session for the SPA.
+router = Router(auth=[token_auth, django_auth])
 
 
 def get_item(request, item_id: str) -> Item:

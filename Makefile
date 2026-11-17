@@ -3,7 +3,7 @@ RUN = $(COMPOSE) run --rm app
 PROJECT = label=com.docker.compose.project=extended-mind
 DATA_DIR ?= ./data
 
-.PHONY: lock npm build up down logs makemigrations migrate createsuperuser shell ping test lint format
+.PHONY: lock npm build up down logs makemigrations migrate createsuperuser shell ping test test-backend test-frontend lint format
 .PHONY: nuke nuke-ps nuke-network nuke-volumes nuke-images nuke-data
 
 lock:
@@ -41,8 +41,14 @@ shell:
 ping:
 	$(RUN) python manage.py procrastinate defer apps.core.tasks.ping
 
-test:
+test: test-backend test-frontend
+
+test-backend:
 	$(RUN) pytest
+
+# Node's built-in runner; no test dependencies.
+test-frontend:
+	$(COMPOSE) run --rm --no-deps frontend node --test
 
 lint:
 	$(RUN) sh -c "ruff check . && ruff format --check ."
