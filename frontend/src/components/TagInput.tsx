@@ -1,12 +1,16 @@
 import { type KeyboardEvent, useId, useState } from "react";
+import { Link } from "react-router";
 
 import {
   type ItemTag,
   type Tag,
+  isSuggestion,
   normalizeTag,
+  sortTags,
   sourceLabel,
   splitTyped,
   tagOptions,
+  tagPath,
 } from "../lib/tags";
 
 type Props = {
@@ -17,7 +21,9 @@ type Props = {
 };
 
 // Tag chips with ×, and a combo box that searches your tags or creates one.
-export function TagInput({ tags, allTags, onAdd, onRemove }: Props) {
+// A suggestion (dashed) is accepted by clicking it; your tags link to their list.
+export function TagInput({ tags: unsorted, allTags, onAdd, onRemove }: Props) {
+  const tags = sortTags(unsorted);
   const id = useId();
   const [text, setText] = useState("");
   const [open, setOpen] = useState(false);
@@ -78,8 +84,22 @@ export function TagInput({ tags, allTags, onAdd, onRemove }: Props) {
     <div className="tag-input">
       <ul className="tag-list">
         {tags.map((tag) => (
-          <li key={tag.slug} className={`tag tag-${tag.source}`} title={sourceLabel(tag.source)}>
-            {tag.name}
+          <li key={tag.slug} className={`tag tag-${tag.source}`}>
+            {isSuggestion(tag) ? (
+              <button
+                type="button"
+                className="tag-accept"
+                title={`${sourceLabel(tag.source)} · click to accept`}
+                aria-label={`Accept suggested tag ${tag.name}`}
+                onClick={() => onAdd(tag.name)}
+              >
+                {tag.name}
+              </button>
+            ) : (
+              <Link to={tagPath(tag.slug)} className="tag-link">
+                {tag.name}
+              </Link>
+            )}
             <button
               type="button"
               className="tag-remove"

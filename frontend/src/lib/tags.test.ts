@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { normalizeTag, splitTyped, tagOptions, typingTag } from "./tags.ts";
+import {
+  isSuggestion,
+  normalizeTag,
+  sortTags,
+  splitTyped,
+  tagOptions,
+  tagPath,
+  typingTag,
+} from "./tags.ts";
 
 const all = [
   { name: "art", slug: "art", count: 1 },
@@ -69,4 +77,23 @@ test("tagOptions: no create for an existing or applied tag", () => {
 
 test("tagOptions: empty text lists most used, capped", () => {
   assert.deepEqual(names(tagOptions(all, [], "", 2)), ["smart-cities", "art-nouveau"]);
+});
+
+test("sortTags: yours first, then suggestions, by name", () => {
+  const tag = (name: string, source: "manual" | "page" | "model") => ({ name, slug: name, source });
+  const sorted = sortTags([tag("zines", "model"), tag("design", "manual"), tag("art", "page"), tag("ai", "manual")]);
+  assert.deepEqual(
+    sorted.map((t) => t.name),
+    ["ai", "design", "art", "zines"],
+  );
+});
+
+test("isSuggestion: page and model tags", () => {
+  assert.equal(isSuggestion({ name: "a", slug: "a", source: "manual" }), false);
+  assert.equal(isSuggestion({ name: "a", slug: "a", source: "page" }), true);
+  assert.equal(isSuggestion({ name: "a", slug: "a", source: "model" }), true);
+});
+
+test("tagPath", () => {
+  assert.equal(tagPath("c++"), "/tag/c%2B%2B");
 });

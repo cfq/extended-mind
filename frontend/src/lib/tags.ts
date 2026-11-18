@@ -73,3 +73,20 @@ export function tagOptions(
 export function sourceLabel(source: TagSource): string {
   return { manual: "", page: "From the page", model: "Suggested by the model" }[source];
 }
+
+// Page and model tags are suggestions until you accept them.
+export function isSuggestion(tag: ItemTag): boolean {
+  return tag.source !== "manual";
+}
+
+export function tagPath(slug: string): string {
+  return `/tag/${encodeURIComponent(slug)}`;
+}
+
+// Yours first, then suggestions; by name within each.
+export function sortTags(tags: ItemTag[]): ItemTag[] {
+  return [...tags].sort(
+    (a, b) =>
+      Number(isSuggestion(a)) - Number(isSuggestion(b)) || a.name.localeCompare(b.name),
+  );
+}
