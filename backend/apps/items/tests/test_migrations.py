@@ -31,3 +31,16 @@ def test_kebab_renames_and_merges(user, item):
     assert Tag.objects.get(pk=renamed.pk).name == "art-nouveau"
     assert {link.item_id for link in kebabed.item_tags.all()} == {item.pk, other.pk}
     assert list(item.tag_removals.values_list("name", flat=True)) == ["art-nouveau"]
+
+
+def test_delete_unused_tags(user, item):
+    delete_unused = importlib.import_module(
+        "apps.items.migrations.0005_delete_unused_tags"
+    ).delete_unused
+    used = Tag.objects.create(user=user, name="used", slug="used")
+    Tag.objects.create(user=user, name="unused", slug="unused")
+    ItemTag.objects.create(item=item, tag=used, source="manual")
+
+    delete_unused(apps, None)
+
+    assert list(Tag.objects.values_list("name", flat=True)) == ["used"]

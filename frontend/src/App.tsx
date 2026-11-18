@@ -24,6 +24,7 @@ export function App() {
         <Route path={SAVE_PATH} element={<Save />} />
         <Route element={<Layout />}>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/tag/:slug" element={<Dashboard />} />
           <Route path="/add" element={<Add />} />
           <Route path="/item/:id" element={<ItemPage />} />
           <Route path="/user/:username" element={<Profile />} />

@@ -73,3 +73,31 @@ export function tagOptions(
 export function sourceLabel(source: TagSource): string {
   return { manual: "", page: "From the page", model: "Suggested by the model" }[source];
 }
+
+// Page and model tags are suggestions until you accept them.
+export function isSuggestion(tag: ItemTag): boolean {
+  return tag.source !== "manual";
+}
+
+export function tagPath(slug: string): string {
+  return `/tag/${encodeURIComponent(slug)}`;
+}
+
+// Yours first, then suggestions; by name within each.
+export function sortTags(tags: ItemTag[]): ItemTag[] {
+  return [...tags].sort(
+    (a, b) =>
+      Number(isSuggestion(a)) - Number(isSuggestion(b)) || a.name.localeCompare(b.name),
+  );
+}
+
+// Order on screen: the first time, as given; after that existing tags
+// keep their place and new ones go on the end, so nothing jumps while
+// you add. A fresh page load sorts again.
+export function keepOrder(previous: string[] | null, names: string[]): string[] {
+  if (!previous) return names;
+  const current = new Set(names);
+  const kept = previous.filter((name) => current.has(name));
+  const seen = new Set(kept);
+  return [...kept, ...names.filter((name) => !seen.has(name))];
+}

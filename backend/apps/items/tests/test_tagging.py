@@ -136,3 +136,16 @@ def test_fetch_adds_page_tags(user, item_sources_dir, monkeypatch):
         "sql": PAGE,
         "open-source": PAGE,
     }
+
+
+def test_removing_last_link_deletes_tag(item, user):
+    other = user.items.exclude(pk=item.pk).first()
+    tagging.add_tags(item, ["art", "design"], MODEL)
+    tagging.add_tags(other, ["design"], MANUAL)
+
+    tagging.remove_tag(item, Tag.objects.get(name="art"))
+    tagging.remove_tag(item, Tag.objects.get(name="design"))
+
+    assert set(user.tags.values_list("name", flat=True)) == {"design"}
+    # The removal outlives the tag: the model can't bring it back.
+    assert tagging.add_tags(item, ["art"], MODEL) == []

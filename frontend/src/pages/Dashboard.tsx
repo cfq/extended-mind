@@ -1,11 +1,11 @@
-import { Link, useSearchParams } from "react-router";
+import { Link, useParams } from "react-router";
 
 import { displayTitle, useItems, useTags } from "../lib/items";
-import { sourceLabel } from "../lib/tags";
+import { sourceLabel, tagPath } from "../lib/tags";
 
 export function Dashboard() {
-  const [params] = useSearchParams();
-  const tag = params.get("tag") ?? undefined;
+  // Also the tag list, at /tag/:slug.
+  const { slug: tag } = useParams();
   const { data: items, error } = useItems(tag);
   const { data: allTags } = useTags();
 
@@ -44,7 +44,7 @@ export function Dashboard() {
                 {item.tags.map((t) => (
                   <li key={t.slug}>
                     <Link
-                      to={`/?tag=${encodeURIComponent(t.slug)}`}
+                      to={tagPath(t.slug)}
                       className={`tag tag-${t.source}`}
                       title={sourceLabel(t.source)}
                     >

@@ -92,3 +92,10 @@ def add_tags(item: Item, names: list[str], source: str) -> list[ItemTag]:
 def remove_tag(item: Item, tag: Tag):
     if item.item_tags.filter(tag=tag).delete()[0]:
         ItemTagRemoval.objects.get_or_create(item=item, name=tag.name)
+    delete_unused(item.user)
+
+
+def delete_unused(user):
+    """Tags with no items go. Removals keep names, not tags, so a removed
+    suggestion stays removed."""
+    Tag.objects.filter(user=user, item_tags__isnull=True).delete()
