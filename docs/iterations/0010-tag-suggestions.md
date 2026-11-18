@@ -31,6 +31,9 @@
 - Accept all / dismiss all.
 - Accepting or removing tags on the dashboard.
 
+## Review round 1
+- The add-tag input always sits on its own line. On the iPhone, a new chip appearing beside it moved it, causing misfired taps.
+
 ---
 
 ## Claude Notes
@@ -40,3 +43,4 @@
 - Backspace in the empty input still removes the last chip; with the new order that's the last suggestion if there is one.
 - The reading view underlines links; tag chip links are excluded with a more specific selector.
 - `/tag/:slug` reuses the dashboard component. The page title line ("Tagged x · Show all") is unchanged.
+- Round 1: `.tag-combo` is `flex: 1 0 100%`, so it wraps to its own line under the chips at any width.

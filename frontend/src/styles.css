@@ -342,8 +342,8 @@ a.tag:hover,
 
 .tag-combo {
   position: relative;
-  flex: 1;
-  min-width: 8em;
+  /* Its own line: chips added above it can't move it under your finger. */
+  flex: 1 0 100%;
 }
 
 .tag-combo input {
