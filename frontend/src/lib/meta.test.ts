@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { articleMeta, domain, formatDate } from "./meta.ts";
+import { articleMeta, domain, formatDate, readingTime, wordCount } from "./meta.ts";
 
 const item = {
   url: "https://www.example.com/post",
@@ -28,6 +28,28 @@ test("articleMeta: site, published, saved", () => {
   assert.deepEqual(articleMeta(item), [
     "Example Blog",
     "3 November 2026",
+    "Saved 17 November 2026",
+  ]);
+});
+
+test("wordCount ignores markup and link targets", () => {
+  assert.equal(wordCount("# Title\n\nSome *bold* words, [a link](https://x.com/a b)."), 6);
+  assert.equal(wordCount("![](https://x.com/i.png)\n\n---\n\n- one\n- two"), 2);
+  assert.equal(wordCount(""), 0);
+});
+
+test("readingTime rounds up at 238 wpm", () => {
+  assert.equal(readingTime("word"), "1 min read");
+  assert.equal(readingTime("word ".repeat(238)), "1 min read");
+  assert.equal(readingTime("word ".repeat(239)), "2 min read");
+  assert.equal(readingTime("  \n"), "");
+});
+
+test("articleMeta: reading time after the date", () => {
+  assert.deepEqual(articleMeta({ ...item, markdown: "word ".repeat(500) }), [
+    "Example Blog",
+    "3 November 2026",
+    "3 min read",
     "Saved 17 November 2026",
   ]);
 });
