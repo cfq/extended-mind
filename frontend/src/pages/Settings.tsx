@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useState } from "react";
+import { Link, useNavigate } from "react-router";
 
 import { api } from "../lib/api";
+import { useSession } from "../lib/auth";
 
 type Token = {
   id: number;
@@ -21,6 +23,8 @@ function date(value: string | null): string {
 
 export function Settings() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { data: user } = useSession();
   const [name, setName] = useState("");
   // Shown once, straight after creating; the server keeps only a hash.
   const [created, setCreated] = useState<CreatedToken | null>(null);
@@ -52,7 +56,23 @@ export function Settings() {
 
   return (
     <section className="settings">
-      <h1>API tokens</h1>
+      <h1>Settings</h1>
+
+      {user && (
+        <>
+          <h2>Account</h2>
+          <dl className="card">
+            <dt>Username</dt>
+            <dd>
+              <Link to={`/user/${user.username}`}>{user.username}</Link>
+            </dd>
+            <dt>Email</dt>
+            <dd>{user.email}</dd>
+          </dl>
+        </>
+      )}
+
+      <h2>API tokens</h2>
       <p>
         For the iOS Shortcut and scripts. Send as{" "}
         <code>Authorization: Bearer &lt;token&gt;</code> to{" "}
@@ -131,6 +151,12 @@ export function Settings() {
           </tbody>
         </table>
       )}
+
+      <p>
+        <button type="button" className="danger" onClick={() => navigate("/logout")}>
+          Log out
+        </button>
+      </p>
     </section>
   );
 }
