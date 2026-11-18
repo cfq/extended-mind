@@ -65,6 +65,20 @@ h1 {
   text-decoration: none;
 }
 
+.brand-short {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .brand-long {
+    display: none;
+  }
+
+  .brand-short {
+    display: inline;
+  }
+}
+
 .main {
   padding: 2rem 1rem;
   max-width: 48rem;
@@ -212,6 +226,20 @@ button.danger {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.settings h1,
+.settings h2 {
+  margin: 0;
+}
+
+.settings h2 {
+  margin-top: 1rem;
+  font-size: 1.1rem;
+}
+
+.settings > p {
+  margin-top: 1rem;
 }
 
 .settings .card + .card {

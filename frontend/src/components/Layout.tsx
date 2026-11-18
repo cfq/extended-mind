@@ -1,24 +1,22 @@
-import { Link, Outlet, useNavigate } from "react-router";
+import { Link, Outlet } from "react-router";
 
 import { useSession } from "../lib/auth";
 
 export function Layout() {
   const { data: user } = useSession();
-  const navigate = useNavigate();
 
   return (
     <>
       <header className="header">
-        <Link to="/" className="brand">
-          Extended Mind
+        <Link to="/" className="brand" aria-label="Extended Mind">
+          <span className="brand-long">Extended Mind</span>
+          <span className="brand-short" aria-hidden="true">
+            EM
+          </span>
         </Link>
         <nav>
           <Link to="/add">Add</Link>
-          {user && <Link to={`/user/${user.username}`}>{user.username}</Link>}
-          <Link to="/settings">Settings</Link>
-          <button type="button" onClick={() => navigate("/logout")}>
-            Log out
-          </button>
+          {user && <Link to="/settings">{user.username}</Link>}
         </nav>
       </header>
       <main className="main">
