@@ -72,7 +72,7 @@ class Tag(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="tags"
     )
-    # Normalised: trimmed, single spaces, lowercase.
+    # Normalised (tagging.normalize): lowercase kebab-case.
     name = models.CharField(max_length=50)
     slug = models.SlugField(max_length=60)
     created_at = models.DateTimeField(auto_now_add=True)

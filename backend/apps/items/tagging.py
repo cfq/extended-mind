@@ -1,4 +1,5 @@
 import re
+import unicodedata
 
 from django.db import IntegrityError, transaction
 from django.utils.text import slugify
@@ -13,10 +14,24 @@ IGNORED = {"uncategorized", "uncategorised", "general", "misc", "other", "blog"}
 AUTO = {ItemTag.Source.PAGE, ItemTag.Source.MODEL}
 
 
+# Spaces, underscores and every dash a keyboard makes (iOS smart
+# punctuation turns -- into —).
+SEPARATORS = re.compile(r"[\s_\u2010-\u2015\u2212-]+")
+
+
+def ascii_fold(text: str) -> str:
+    """Accents dropped: "família" → "familia"."""
+    decomposed = unicodedata.normalize("NFKD", text)
+    return "".join(c for c in decomposed if not unicodedata.combining(c))
+
+
 def normalize(name: str) -> str:
-    """Trimmed, single-spaced, lowercase; empty if unusable."""
-    name = re.sub(r"\s+", " ", name or "").strip().lower()
-    if len(name) > MAX_NAME or not re.search(r"\w", name):
+    """ASCII kebab-case: "Artificial intelligence " → "artificial-intelligence".
+    a-z, 0-9, + and # (c++, c#); accents folded. Empty if unusable."""
+    name = SEPARATORS.sub("-", ascii_fold(name or "").lower())
+    name = re.sub(r"[^a-z0-9+#-]", "", name)
+    name = re.sub(r"-{2,}", "-", name).strip("-").lstrip("#").strip("-")
+    if len(name) > MAX_NAME or not re.search(r"[a-z0-9]", name):
         return ""
     return name
 

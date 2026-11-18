@@ -24,7 +24,7 @@
 - trafilatura's `categories` and `tags` metadata, kept on extract. Up to 5, normalised.
 
 ### Data model
-- `Tag`: user, name, slug. Unique per user on lowercased name.
+- `Tag`: user, name, slug. Unique per user on the normalised name.
 - `ItemTag`: item, tag, source (`manual` / `page` / `model`), created_at. Unique on item + tag.
 - `ItemTagRemoval`: item, tag name. Remembers auto tags you removed, so they aren't re-added.
 
@@ -55,13 +55,19 @@
 - `fastembed` added; model downloaded at image build time.
 - Spec: automatic tagging (page tags + local model) in scope; LLM or cloud AI tagging stays out.
 
+## Review round 1
+- Reusing existing tags was too loose ("british online" landed on an unrelated article). Fix: a higher bar for reuse, and the tag's words must appear in the article.
+- Tag names are ASCII lowercase kebab-case: `artificial-intelligence`. a-z, 0-9, `+` and `#` (`c++`, `c#`); accents folded (`família` → `familia`).
+- The tag input turns what a phone keyboard types into that form.
+
 ---
 
 ## Claude Notes
 - Why embeddings over a zero-shot classifier (e.g. `MoritzLaurer/deberta-v3-base-zeroshot-v2.0`): zero-shot needs a label list, and you start with no tags, so it would need a starter taxonomy; it also runs one pass per label (slow on CPU with many tags). Embeddings give new keyphrases on day one, then increasingly reuse your own tags, and the same model can power semantic search later.
 - Why not a fixed topic classifier (IPTC news, tweet-topic): coarse fixed categories ("science & technology") that won't match how you tag.
 - Text fed to the model: title + description + first 2,000 characters of the text; the model reads at most 512 tokens.
-- Normalising: trim, collapse spaces, lowercase, max 50 characters; slug from `slugify`.
+- Normalising (round 1): ASCII kebab-case, max 50 characters. Spaces, underscores and Unicode dashes (iOS smart punctuation) become one hyphen; a leading `#` is dropped (hashtag habit); apostrophes vanish (`apple’s` → `apples`). Same rules in `tagging.normalize` and `lib/tags.ts`. Slug from `slugify`, suffixed on collision (`c++`/`c#` both slug to `c`).
+- Migration `0004_kebab_tag_names` converts existing tags and removals, merging tags that end up with the same name. Has a frozen copy of the rules.
 - Thresholds and caps start as constants in code, tuned on your saved items.
 - When you add a tag by hand that an auto source had already added, the source flips to `manual`.
 - `reextract` adds page tags too, honouring removals.
@@ -77,3 +83,15 @@
 - Model tags arrive in a separate job a moment after the fetch; the page shows them on the next load.
 - `.items li` became `.items > li` so tag chips inside list items don't pick up row padding and borders.
 - Tag chips sized in em, so the same component fits the reading view and the dashboard. On the article page they use the reading view's hairline colour.
+- Round 1, model:
+  - Existing-tag reuse threshold 0.7 (keyphrases stay 0.6), and every word of the tag must appear in the article (accents folded). Stops "british-online" and "superintelligence" landing on unrelated articles.
+  - Tags are embedded with hyphens as spaces, which is how the model saw them in training.
+  - A keyphrase that shares a word with any of the item's tags or removals is skipped ("artificial" next to "artificial-intelligence").
+  - Max 3 model tags per item in total. Before this, re-running `autotag` added 3 more each time.
+- Round 1, phone input:
+  - The input has `autocapitalize`, `autocorrect` and spellcheck off, and `enterkeyhint="done"`.
+  - Separators turn into hyphens as you type; a trailing hyphen stays until you add the tag, so "artificial " carries on to "artificial-intelligence".
+  - Commas are read from the text, because Android keyboards don't report the comma key.
+  - No rewriting during IME composition (predictive text), which breaks input on Android.
+- After the change, each tag add or remove refetches the item: two quick adds can finish out of order.
+- Dev data, round 1: your 3 manual tags and 3 removals were kept and converted. Model tags were cleared and `autotag` re-run once; a second run added nothing.

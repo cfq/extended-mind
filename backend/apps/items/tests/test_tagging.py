@@ -25,8 +25,17 @@ def tags_of(item):
 @pytest.mark.parametrize(
     "raw, name",
     [
-        ("  Open   Source ", "open source"),
+        ("Artificial intelligence ", "artificial-intelligence"),
+        ("  Open   Source ", "open-source"),
+        ("art—nouveau", "art-nouveau"),
+        ("foo--bar_baz", "foo-bar-baz"),
+        ("Apple’s word", "apples-word"),
+        ("sagrada família", "sagrada-familia"),
+        ("café crème", "cafe-creme"),
+        ("日本", ""),
+        ("#Design", "design"),
         ("C++", "c++"),
+        ("c#", "c#"),
         ("---", ""),
         ("", ""),
         ("x" * 51, ""),
@@ -107,7 +116,7 @@ def test_extract_returns_page_tags():
         "postgres",
         "databases",
         "sql",
-        "open source",
+        "open-source",
     ]
 
 
@@ -125,5 +134,5 @@ def test_fetch_adds_page_tags(user, item_sources_dir, monkeypatch):
         "postgres": PAGE,
         "databases": PAGE,
         "sql": PAGE,
-        "open source": PAGE,
+        "open-source": PAGE,
     }

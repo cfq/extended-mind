@@ -179,7 +179,7 @@ def test_add_tag(user_client, item):
 
     assert response.status_code == 200
     assert response.json() == [
-        {"name": "open source", "slug": "open-source", "source": "manual"}
+        {"name": "open-source", "slug": "open-source", "source": "manual"}
     ]
 
 

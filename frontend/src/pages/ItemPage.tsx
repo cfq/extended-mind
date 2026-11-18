@@ -36,10 +36,8 @@ export function ItemPage() {
     onSuccess: (tags) => {
       queryClient.setQueryData<Item>([...itemsKey, id], (old) => old && { ...old, tags });
       queryClient.invalidateQueries({ queryKey: tagsKey });
-      queryClient.invalidateQueries({
-        queryKey: itemsKey,
-        predicate: (query) => query.queryKey.length === 1 || typeof query.queryKey[1] === "object",
-      });
+      // Also refetches this item: two quick adds can finish out of order.
+      queryClient.invalidateQueries({ queryKey: itemsKey });
     },
   });
 

@@ -8,10 +8,38 @@ export const tagsKey = ["tags"];
 
 export const MAX_TAG = 50;
 
-// Same rules as the backend: trimmed, single spaces, lowercase.
+// Spaces, underscores and every dash a keyboard makes (iOS smart
+// punctuation turns -- into —).
+const SEPARATORS = /[\s_\u2010-\u2015\u2212-]+/g;
+
+// Accents dropped: "família" → "familia".
+function asciiFold(text: string): string {
+  return text.normalize("NFKD").replace(/\p{M}/gu, "");
+}
+
+// As you type: lowercase, separators become one hyphen. A trailing hyphen
+// stays so "artificial " can carry on to "artificial-intelligence".
+export function typingTag(raw: string): string {
+  return asciiFold(raw).toLowerCase().replace(SEPARATORS, "-").replace(/^-+/, "");
+}
+
+// Same rules as the backend (tagging.normalize): ASCII kebab-case,
+// a-z, 0-9, + and #. Empty if unusable.
 export function normalizeTag(name: string): string {
-  const tag = name.replace(/\s+/g, " ").trim().toLowerCase();
-  return tag.length <= MAX_TAG && /[\p{L}\p{N}_]/u.test(tag) ? tag : "";
+  const tag = typingTag(name)
+    .replace(/[^a-z0-9+#-]/g, "")
+    .replace(/^#+/, "")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return tag.length <= MAX_TAG && /[a-z0-9]/.test(tag) ? tag : "";
+}
+
+// Commas finish tags. Android keyboards don't report the comma key, so
+// it's read from the text: "art, design, ph" → add art and design, keep "ph".
+export function splitTyped(raw: string): { done: string[]; rest: string } {
+  const parts = raw.split(/[,，]/);
+  const rest = parts.pop() ?? "";
+  return { done: parts.map(normalizeTag).filter(Boolean), rest: typingTag(rest) };
 }
 
 export type TagOption = { name: string; create: boolean };

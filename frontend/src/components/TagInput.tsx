@@ -1,6 +1,13 @@
 import { type KeyboardEvent, useId, useState } from "react";
 
-import { type ItemTag, type Tag, sourceLabel, tagOptions } from "../lib/tags";
+import {
+  type ItemTag,
+  type Tag,
+  normalizeTag,
+  sourceLabel,
+  splitTyped,
+  tagOptions,
+} from "../lib/tags";
 
 type Props = {
   tags: ItemTag[];
@@ -15,14 +22,25 @@ export function TagInput({ tags, allTags, onAdd, onRemove }: Props) {
   const [text, setText] = useState("");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
+  // Don't rewrite the text mid-word on phone keyboards (IME composition).
+  const [composing, setComposing] = useState(false);
 
   const options = open ? tagOptions(allTags, tags.map((t) => t.name), text) : [];
   const listId = `${id}-list`;
   const optionId = (i: number) => `${id}-opt-${i}`;
 
   function add(name: string) {
-    if (name) onAdd(name);
+    const tag = normalizeTag(name);
+    if (tag) onAdd(tag);
     setText("");
+    setActive(-1);
+  }
+
+  function type(raw: string) {
+    const { done, rest } = splitTyped(raw);
+    done.forEach((tag) => onAdd(tag));
+    setText(rest);
+    setOpen(true);
     setActive(-1);
   }
 
@@ -38,7 +56,6 @@ export function TagInput({ tags, allTags, onAdd, onRemove }: Props) {
         setActive((i) => Math.max(i - 1, -1));
         break;
       case "Enter":
-      case ",":
         if (active >= 0 && options[active]) {
           e.preventDefault();
           add(options[active].name);
@@ -86,10 +103,16 @@ export function TagInput({ tags, allTags, onAdd, onRemove }: Props) {
           placeholder="Add tag"
           value={text}
           maxLength={50}
-          onChange={(e) => {
-            setText(e.target.value);
-            setOpen(true);
-            setActive(-1);
+          autoCapitalize="none"
+          autoCorrect="off"
+          autoComplete="off"
+          spellCheck={false}
+          enterKeyHint="done"
+          onChange={(e) => (composing ? setText(e.target.value) : type(e.target.value))}
+          onCompositionStart={() => setComposing(true)}
+          onCompositionEnd={(e) => {
+            setComposing(false);
+            type(e.currentTarget.value);
           }}
           onFocus={() => setOpen(true)}
           onBlur={() => {

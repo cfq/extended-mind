@@ -51,8 +51,15 @@ def test_candidates():
 
 
 def test_shares_word():
-    assert autotag.shares_word("recent emfcamp", ["emfcamp"])
-    assert not autotag.shares_word("art nouveau", ["sagrada"])
+    assert autotag.shares_word("recent-emfcamp", ["emfcamp"])
+    assert not autotag.shares_word("art-nouveau", ["sagrada"])
+
+
+def test_in_text():
+    words = {"british", "supermarket", "online"}
+
+    assert autotag.in_text("british-online", words)
+    assert not autotag.in_text("superintelligence", words)
 
 
 def test_mmr_prefers_variety():
@@ -65,14 +72,24 @@ def test_mmr_prefers_variety():
 
 
 def test_suggest_reuses_existing_tags(article, low_thresholds):
-    tagging.get_or_create_tag(article.user, "postgres")
+    tagging.get_or_create_tag(article.user, "postgres-indexes")
     tagging.get_or_create_tag(article.user, "gardening")
 
     names = autotag.suggest(article, bag_of_words)
 
-    assert names[0] == "postgres"
+    assert names[0] == "postgres-indexes"
     assert "gardening" not in names
     assert len(names) <= autotag.MAX_TAGS
+
+
+def test_suggest_reuses_only_tags_in_the_text(article, monkeypatch):
+    # Close in meaning isn't enough: the tag's words must be in the article.
+    monkeypatch.setattr(autotag, "TAG_THRESHOLD", -1)
+    monkeypatch.setattr(autotag, "PHRASE_THRESHOLD", 2)
+    tagging.get_or_create_tag(article.user, "databases")
+    tagging.get_or_create_tag(article.user, "postgres")
+
+    assert autotag.suggest(article, bag_of_words) == ["postgres"]
 
 
 def test_suggest_skips_taken_and_removed(article, low_thresholds):
@@ -83,13 +100,21 @@ def test_suggest_skips_taken_and_removed(article, low_thresholds):
     names = autotag.suggest(article, bag_of_words)
 
     assert names
-    assert not {"postgres", "indexes"} & set(names)
+    # Nor phrases sharing their words ("postgres index").
+    assert not any({"postgres", "indexes"} & autotag.words_of(n) for n in names)
 
 
 def test_suggest_empty_article(user):
     item = Item.objects.create(user=user, url="https://x.test", url_submitted="x")
 
     assert autotag.suggest(item, bag_of_words) == []
+
+
+def test_autotag_twice_adds_no_more(article, low_thresholds):
+    first = autotag.autotag(article, bag_of_words)
+
+    assert len(first) == autotag.MAX_TAGS
+    assert autotag.autotag(article, bag_of_words) == []
 
 
 def test_autotag_marks_source(article, low_thresholds):

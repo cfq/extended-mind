@@ -22,7 +22,8 @@ MODEL = "BAAI/bge-small-en-v1.5"
 MAX_TAGS = 3
 # Cosine similarity to the article. bge-small puts unrelated text around
 # 0.4–0.5, so the bar sits well above that.
-TAG_THRESHOLD = 0.6
+# Reusing a tag needs a higher bar: short tag names match articles easily.
+TAG_THRESHOLD = 0.7
 PHRASE_THRESHOLD = 0.6
 # Keyphrase variety: 0 = only relevance, 1 = only difference.
 DIVERSITY = 0.5
@@ -83,9 +84,22 @@ def candidates(text: str) -> list[str]:
     return [phrase for phrase, _ in counts.most_common(MAX_CANDIDATES)]
 
 
-def shares_word(phrase: str, chosen: list[str]) -> bool:
-    words = set(phrase.split())
-    return any(words & set(other.split()) for other in chosen)
+def words_of(tag: str) -> set[str]:
+    return set(re.split(r"[\s-]+", tag)) - {""}
+
+
+def shares_word(tag: str, chosen: list[str]) -> bool:
+    return any(words_of(tag) & words_of(other) for other in chosen)
+
+
+def in_text(tag: str, text_words: set[str]) -> bool:
+    """Every word of the tag appears in the article."""
+    return words_of(tag) <= text_words
+
+
+def spoken(tag: str) -> str:
+    # What the model embeds: "artificial-intelligence" → "artificial intelligence".
+    return tag.replace("-", " ")
 
 
 def unit(vectors: np.ndarray) -> np.ndarray:
@@ -109,6 +123,7 @@ def mmr(doc: np.ndarray, phrases: np.ndarray, count: int, threshold: float):
 
 
 def suggest(item: Item, embed: Embed | None = None) -> list[str]:
+    """Tag names (normalised) for the item, best first."""
     text = document(item)
     if not text.strip():
         return []
@@ -118,23 +133,38 @@ def suggest(item: Item, embed: Embed | None = None) -> list[str]:
     # Already on the item, or removed from it: don't spend a slot on them.
     taken = set(item.item_tags.values_list("tag__name", flat=True))
     taken |= set(item.tag_removals.values_list("name", flat=True))
+    # MAX_TAGS is per item, so running again doesn't pile on more.
+    budget = MAX_TAGS - item.item_tags.filter(source=ItemTag.Source.MODEL).count()
+    if budget <= 0:
+        return []
 
+    folded = tagging.ascii_fold(text.lower())
+    text_words = {w for word in WORD.findall(folded) for w in words_of(word)}
     existing = [
-        n for n in item.user.tags.values_list("name", flat=True) if n not in taken
+        n
+        for n in item.user.tags.values_list("name", flat=True)
+        if n not in taken and in_text(n, text_words)
     ]
     if existing:
-        scores = unit(embed(existing)) @ doc
+        scores = unit(embed([spoken(n) for n in existing])) @ doc
         ranked = sorted(zip(scores, existing, strict=True), reverse=True)
         names += [name for score, name in ranked if score >= TAG_THRESHOLD]
-        names = names[:MAX_TAGS]
+        names = names[:budget]
 
-    phrases = [p for p in candidates(text) if p not in names and p not in taken]
-    if phrases and len(names) < MAX_TAGS:
+    phrases, tags = [], []
+    for phrase in candidates(text):
+        tag = tagging.normalize(phrase)
+        if tag and tag not in names and tag not in taken and tag not in tags:
+            phrases.append(phrase)
+            tags.append(tag)
+    if phrases and len(names) < budget:
         vectors = unit(embed(phrases))
         # Extra picks, then drop overlaps ("emfcamp", "recent emfcamp").
-        for i in mmr(doc, vectors, MAX_TAGS * 3, PHRASE_THRESHOLD):
-            if len(names) < MAX_TAGS and not shares_word(phrases[i], names):
-                names.append(phrases[i])
+        for i in mmr(doc, vectors, budget * 3, PHRASE_THRESHOLD):
+            # Not a word already in its tags or removals ("artificial" next
+            # to "artificial-intelligence").
+            if len(names) < budget and not shares_word(tags[i], [*names, *taken]):
+                names.append(tags[i])
     return names
 
 
