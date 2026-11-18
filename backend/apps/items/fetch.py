@@ -9,7 +9,7 @@ import trafilatura
 from django.utils import timezone
 from django.utils.text import slugify
 
-from apps.items import tagging
+from apps.items import images, tagging
 from apps.items.models import Item, ItemSource, ItemTag
 
 USER_AGENT = (
@@ -102,6 +102,7 @@ def parse_date(value: str | None) -> date | None:
 def extract(item: Item, html: str | bytes) -> list[str]:
     """Fills the item's content and metadata from a page's HTML.
     Returns the tags the page declares."""
+    html = images.tidy_html(html, item.url)
     markdown = trafilatura.extract(
         html,
         url=item.url,

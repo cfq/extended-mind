@@ -1,7 +1,7 @@
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 from django.db.models import Count
-from django.http import Http404
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
 from ninja import Router, Status
 from ninja.errors import HttpError
@@ -9,7 +9,7 @@ from ninja.security import django_auth
 
 from apps.items import ids, tagging
 from apps.items.fetch import clean_url
-from apps.items.models import Item, ItemTag, Tag
+from apps.items.models import Item, ItemSource, ItemTag, Tag
 from apps.items.schemas import (
     ItemIn,
     ItemOut,
@@ -79,6 +79,29 @@ def delete_item(request, item_id: str):
     get_item(request, item_id).delete()
     tagging.delete_unused(request.user)
     return Status(204, None)
+
+
+# Saved article images. Their URLs are stored in item markdown
+# (images.local_url): keep this path stable.
+@router.get("/{item_id}/sources/{filename}")
+def get_item_source(request, item_id: str, filename: str):
+    item = get_item(request, item_id)
+    # Images only: a saved HTML page served from here could run scripts.
+    source = get_object_or_404(
+        ItemSource, item=item, kind=ItemSource.Kind.IMAGE, filename=filename
+    )
+    try:
+        file = source.path.open("rb")
+    except OSError as e:
+        raise Http404 from e
+    response = FileResponse(file, content_type=source.mime)
+    # Filenames include the content hash, so a URL never changes content.
+    response["Cache-Control"] = "private, max-age=31536000, immutable"
+    if source.mime == "image/svg+xml":
+        response["Content-Security-Policy"] = (
+            "default-src 'none'; style-src 'unsafe-inline'; sandbox"
+        )
+    return response
 
 
 # Tags on an item. Both return the item's tags after the change.

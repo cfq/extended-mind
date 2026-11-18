@@ -41,16 +41,19 @@ def test_fetch_item_failed(pending, monkeypatch):
     assert pending.error == "No article content found."
 
 
-def test_fetch_item_queues_tagging(pending, monkeypatch, app):
+def test_fetch_item_queues_tagging_and_images(pending, monkeypatch, app):
     monkeypatch.setattr(fetch, "fetch", lambda item: None)
 
     fetch_item(item_id=str(pending.id))
 
     jobs = [(j["task_name"], j["queue_name"]) for j in app.connector.jobs.values()]
-    assert jobs == [("apps.items.tasks.tag_item", "tags")]
+    assert jobs == [
+        ("apps.items.tasks.tag_item", "tags"),
+        ("apps.items.tasks.save_images", "default"),
+    ]
 
 
-def test_failed_fetch_queues_no_tagging(pending, monkeypatch, app):
+def test_failed_fetch_queues_nothing(pending, monkeypatch, app):
     def fail(item):
         raise fetch.FetchError("nope")
 

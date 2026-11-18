@@ -111,7 +111,11 @@ export function ItemPage() {
         {item.markdown && (
           <div className="reading-body">
             {/* No raw HTML rendering: never add rehype-raw. */}
-            <Markdown>{item.markdown}</Markdown>
+            <Markdown
+              components={{ img: ({ node: _, ...props }) => <img loading="lazy" {...props} /> }}
+            >
+              {item.markdown}
+            </Markdown>
           </div>
         )}
 

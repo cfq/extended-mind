@@ -2,10 +2,14 @@ from django.core.management.base import BaseCommand
 
 from apps.items import fetch, tagging
 from apps.items.models import Item, ItemSource, ItemTag
+from apps.items.tasks import save_images
 
 
 class Command(BaseCommand):
-    help = "Re-run extraction and page tags from saved HTML. No network."
+    help = (
+        "Re-run extraction and page tags from saved HTML, then queue image "
+        "downloads. No page fetches; saved images aren't downloaded again."
+    )
 
     def handle(self, *args, **options):
         done = failed = 0
@@ -25,6 +29,8 @@ class Command(BaseCommand):
                 continue
             item.save()
             tagging.add_tags(item, tags, ItemTag.Source.PAGE)
+            # Markdown is back to original image URLs; this swaps them again.
+            save_images.defer(item_id=str(item.pk))
             done += 1
         skipped = Item.objects.exclude(pk__in=items_with_source).count()
         self.stdout.write(f"Re-extracted {done}, skipped {skipped}, failed {failed}.")
