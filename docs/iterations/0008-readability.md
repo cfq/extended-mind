@@ -6,11 +6,11 @@
 
 ## Plan
 - Article page only, CSS plus a reading-time line. No backend change.
-- Measure: column set in characters, about 66 per line.
+- Measure: column capped at 65ch, within the 45–75 characters-per-line range.
 - Leading: body line height 1.3 → 1.5; headings stay tight.
 - Paragraph spacing: one line of space between paragraphs, so text sits on a regular vertical rhythm.
 - Headings: a small size scale (h2 > h3 > body), more space above than below so each heading sits with its section.
-- Wrapping: balanced lines for the title and headings, no single-word last lines in paragraphs, hyphenation on narrow screens only.
+- Wrapping: balanced lines for headings, no single-word last lines in the title or paragraphs, hyphenation on narrow screens only.
 - Links: a visible underline, offset from the text; the current hairline nearly disappears.
 - Dark mode: off-white text on a darker grey instead of pure white, which glares.
 - Standfirst: larger and upright instead of italic.
@@ -22,11 +22,11 @@
 ---
 
 ## Claude Notes
-- Measure: 45–75 characters per line is the long-standing range, about 66 the usual target (Bringhurst; Baymard). `max-width: 31em` (system sans averages about 2.15 characters per em of English text). Not `66ch`: `ch` is the width of "0", wider than the average letter, so 66ch runs to about 75. The old 36em was around 78.
+- Measure: 45–75 characters per line is the long-standing range, about 66 the usual target (Bringhurst; Baymard). Built as `31em` (about 66 characters); cfq changed it to `65ch` in review (about 75, still in range). The old 36em was around 78.
 - Leading: WCAG 1.4.12 uses 1.5 as its line-height baseline; screen studies favour about 1.4–1.6 for body text at these line lengths. Headings 1.15–1.2.
 - Paragraph gap 1.5em, matching the line height, so paragraphs land on the same grid as lines.
 - Heading scale about 1.25: h2 1.25em, h3 1.1em, h4 body size; margin about 2em above, 0.5em below (proximity).
-- `text-wrap: balance` on the title and headings, `text-wrap: pretty` on paragraphs. Browsers that don't support these ignore them.
+- `text-wrap: balance` on the author and headings, `text-wrap: pretty` on paragraphs. Title changed to `pretty` by cfq in review. Browsers that don't support these ignore them.
 - `hyphens: auto` at ≤600px only, where the narrow column makes ragged edges worst. Uses `lang="en"`, already set in `index.html`.
 - Text stays left-aligned and ragged: justified text without good hyphenation leaves rivers and uneven word spacing.
 - Links: `text-decoration` 1px, `text-underline-offset: 0.2em`, colour `--r-meta`; hover darkens to the text colour. The `#e6e6e6` hairline on white is about 1.2:1, so links are hard to find.
