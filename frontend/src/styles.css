@@ -277,22 +277,25 @@ button.danger {
   --r-hover: #999;
 
   font-size: 20px;
-  line-height: 1.3;
+  line-height: 1.5;
   font-feature-settings: "pnum";
+  font-kerning: normal;
+  text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   color: var(--r-text);
   overflow-wrap: break-word;
 }
 
+/* Off-white on dark grey: pure white glares (halation). */
 @media (prefers-color-scheme: dark) {
   .reading {
-    --r-bg: #262626;
-    --r-text: #fff;
-    --r-meta: #999;
-    --r-caption: #999;
-    --r-rule: #4d4d4d;
-    --r-hover: #999;
+    --r-bg: #1f1f1f;
+    --r-text: #e8e8e8;
+    --r-meta: #9a9a9a;
+    --r-caption: #9a9a9a;
+    --r-rule: #3a3a3a;
+    --r-hover: #fff;
   }
 }
 
@@ -308,19 +311,13 @@ button.danger {
   }
 }
 
-@media (max-width: 768px) {
-  .reading {
-    line-height: 1.334;
-  }
-}
-
 body:has(.reading) {
   background: #fff;
 }
 
 @media (prefers-color-scheme: dark) {
   body:has(.reading) {
-    background: #262626;
+    background: #1f1f1f;
   }
 }
 
@@ -346,14 +343,16 @@ body:has(.reading) {
   padding: 0.667em 0 0;
   font-size: 3em;
   font-weight: 400;
-  line-height: 1;
+  line-height: 1.1;
   overflow-wrap: anywhere;
+  text-wrap: pretty;
 }
 
 .reading-author {
   padding: 0.5em 0 0;
   font-size: 1.5em;
-  line-height: 1;
+  line-height: 1.2;
+  text-wrap: balance;
 }
 
 .reading-meta {
@@ -374,8 +373,9 @@ body:has(.reading) {
   color: inherit;
 }
 
+/* Measure in the 45–75 character range. */
 .reading-column {
-  max-width: 36em;
+  max-width: 65ch;
   margin: 0 auto;
 }
 
@@ -384,52 +384,75 @@ body:has(.reading) {
 }
 
 .reading-standfirst {
-  margin-bottom: 1em;
-  font-style: italic;
+  margin: 0 0 1.25em;
+  font-size: 1.2em;
+  line-height: 1.4;
+  text-wrap: pretty;
 }
 
 .reading-body > :first-child {
   margin-top: 0;
 }
 
-.reading-body p,
-.reading-body li {
-  margin: 0 0 1em;
+/* Paragraph gap = one line, so text keeps a regular rhythm. */
+.reading-body p {
+  margin: 0 0 1.5em;
+  text-wrap: pretty;
 }
 
+.reading-body li {
+  margin: 0 0 0.5em;
+}
+
+/* Small scale; more space above than below ties a heading to its section. */
 .reading-body h1,
 .reading-body h2,
 .reading-body h3,
 .reading-body h4 {
-  margin: 2em 0 0.3em;
-  padding-bottom: 0.25em;
-  font-size: 1em;
+  margin: 2em 0 0.5em;
   font-weight: 700;
-  line-height: inherit;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+.reading-body h1,
+.reading-body h2 {
+  font-size: 1.25em;
+}
+
+.reading-body h3 {
+  font-size: 1.1em;
+}
+
+.reading-body h4 {
+  font-size: 1em;
 }
 
 .reading a {
   color: inherit;
-  text-decoration: none;
-  background-image: linear-gradient(var(--r-rule) 1px, transparent 0);
-  background-size: 1px 1px;
-  background-repeat: repeat-x;
-  background-position: 0 97%;
-  transition: color 0.2s;
+  text-decoration: underline 1px var(--r-meta);
+  text-underline-offset: 0.2em;
+  transition: color 0.2s, text-decoration-color 0.2s;
 }
 
 .reading a:hover {
   color: var(--r-hover);
+  text-decoration-color: currentColor;
+}
+
+.reading-meta a {
+  text-decoration-color: var(--r-rule);
 }
 
 .reading-body blockquote {
-  margin: 0 0 1em;
-  padding: 0 10.4%;
+  margin: 0 0 1.5em;
+  padding: 0 0 0 1.25em;
+  border-left: 2px solid var(--r-rule);
 }
 
 .reading-body ul,
 .reading-body ol {
-  margin: 0 0 1em 1em;
+  margin: 0 0 1.5em 1em;
   padding: 0;
 }
 
@@ -518,9 +541,12 @@ button.quiet:hover {
   .reading-author {
     font-size: 1.334em;
   }
+}
 
+/* Narrow column: hyphenate to even out the ragged edge. */
+@media (max-width: 600px) {
   .reading-body p,
   .reading-body li {
-    margin-bottom: 1.33em;
+    hyphens: auto;
   }
 }

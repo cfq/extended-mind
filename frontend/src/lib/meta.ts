@@ -3,7 +3,24 @@ type MetaSource = {
   site_name: string;
   published_at: string | null;
   created_at: string;
+  markdown?: string;
 };
+
+// Average silent reading speed for non-fiction (Brysbaert 2019).
+const WORDS_PER_MINUTE = 238;
+
+// Words in markdown, ignoring link targets and image URLs.
+export function wordCount(markdown: string): number {
+  const text = markdown.replace(/\]\([^)]*\)/g, "]");
+  return text.match(/\S*[\p{L}\p{N}]\S*/gu)?.length ?? 0;
+}
+
+// "8 min read"; empty when there's no text.
+export function readingTime(markdown: string): string {
+  const words = wordCount(markdown);
+  if (!words) return "";
+  return `${Math.max(1, Math.ceil(words / WORDS_PER_MINUTE))} min read`;
+}
 
 export function domain(url: string): string {
   try {
@@ -28,6 +45,8 @@ export function formatDate(value: string): string {
 export function articleMeta(item: MetaSource): string[] {
   const parts = [item.site_name || domain(item.url)];
   if (item.published_at) parts.push(formatDate(item.published_at));
+  const time = readingTime(item.markdown ?? "");
+  if (time) parts.push(time);
   parts.push(`Saved ${formatDate(item.created_at)}`);
   return parts;
 }
