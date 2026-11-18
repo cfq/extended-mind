@@ -296,6 +296,11 @@ button.danger {
   border-style: dashed;
 }
 
+/* Added, waiting for the server. */
+.tag-pending {
+  opacity: 0.45;
+}
+
 a.tag:hover,
 .tag:has(> .tag-link:hover, > .tag-accept:hover) {
   border-color: currentColor;

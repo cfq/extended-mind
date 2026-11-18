@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useMutationState, useQueryClient } from "@tanstack/react-query";
 import Markdown from "react-markdown";
 import { useNavigate, useParams } from "react-router";
 
@@ -26,8 +26,11 @@ export function ItemPage() {
   const { data: allTags = [] } = useTags();
 
   // Both return the item's tags after the change.
+  type TagChange = { add?: string; remove?: string };
+  const tagsMutationKey = ["item-tags", id];
   const changeTags = useMutation({
-    mutationFn: ({ add, remove }: { add?: string; remove?: string }) =>
+    mutationKey: tagsMutationKey,
+    mutationFn: ({ add, remove }: TagChange) =>
       add
         ? api<ItemTag[]>(`/items/${id}/tags`, { method: "POST", body: { name: add } })
         : api<ItemTag[]>(`/items/${id}/tags/${encodeURIComponent(remove ?? "")}`, {
@@ -40,6 +43,12 @@ export function ItemPage() {
       queryClient.invalidateQueries({ queryKey: itemsKey });
     },
   });
+
+  // Adds in flight, shown greyed until confirmed.
+  const pendingTags = useMutationState({
+    filters: { mutationKey: tagsMutationKey, status: "pending" },
+    select: (mutation) => (mutation.state.variables as TagChange).add ?? "",
+  }).filter(Boolean);
 
   const remove = useMutation({
     mutationFn: () => api(`/items/${id}`, { method: "DELETE" }),
@@ -71,8 +80,10 @@ export function ItemPage() {
       <div className="reading-column">
         <div className="reading-tags">
           <TagInput
+            key={id}
             tags={item.tags}
             allTags={allTags}
+            pending={pendingTags}
             onAdd={(name) => changeTags.mutate({ add: name })}
             onRemove={(slug) => changeTags.mutate({ remove: slug })}
           />

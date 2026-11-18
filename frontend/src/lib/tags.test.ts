@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   isSuggestion,
+  keepOrder,
   normalizeTag,
   sortTags,
   splitTyped,
@@ -96,4 +97,10 @@ test("isSuggestion: page and model tags", () => {
 
 test("tagPath", () => {
   assert.equal(tagPath("c++"), "/tag/c%2B%2B");
+});
+
+test("keepOrder: first time as given, then new ones on the end", () => {
+  assert.deepEqual(keepOrder(null, ["b", "a"]), ["b", "a"]);
+  assert.deepEqual(keepOrder(["b", "a"], ["a", "b", "c"]), ["b", "a", "c"]);
+  assert.deepEqual(keepOrder(["b", "a", "c"], ["a", "c"]), ["a", "c"]);
 });

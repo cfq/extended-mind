@@ -77,6 +77,7 @@ def retry_item(request, item_id: str):
 @router.delete("/{item_id}", response={204: None})
 def delete_item(request, item_id: str):
     get_item(request, item_id).delete()
+    tagging.delete_unused(request.user)
     return Status(204, None)
 
 

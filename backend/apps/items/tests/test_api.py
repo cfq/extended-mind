@@ -125,6 +125,16 @@ def test_delete(user_client, item, item_sources_dir):
     assert not folder.exists()
 
 
+def test_delete_drops_tags_left_unused(user_client, user, item, item_sources_dir):
+    other = user.items.exclude(pk=item.pk).first()
+    tagging.add_tags(item, ["only-here", "shared"], ItemTag.Source.MANUAL)
+    tagging.add_tags(other, ["shared"], ItemTag.Source.MANUAL)
+
+    user_client.delete(url_for(item))
+
+    assert list(user.tags.values_list("name", flat=True)) == ["shared"]
+
+
 def test_delete_other_users_item(client, other_user, item):
     client.force_login(other_user)
 
