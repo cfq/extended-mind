@@ -1,6 +1,6 @@
 from procrastinate.contrib.django import app
 
-from apps.items import fetch
+from apps.items import autotag, fetch
 from apps.items.models import Item
 
 
@@ -18,3 +18,12 @@ def fetch_item(item_id: str):
         item.save(update_fields=["status", "error"])
         # Re-raise so the job is recorded as failed too.
         raise
+    # Its own job and queue: a slow or failed model never holds up fetches.
+    tag_item.defer(item_id=item_id)
+
+
+@app.task(queue="tags")
+def tag_item(item_id: str):
+    item = Item.objects.filter(id=item_id).first()
+    if item and item.status == Item.Status.DONE:
+        autotag.autotag(item)

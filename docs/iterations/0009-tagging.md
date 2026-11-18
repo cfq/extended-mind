@@ -13,12 +13,9 @@
 
 ## Plan
 ### Model
-- `BAAI/bge-small-en-v1.5` sentence-embedding model (33M params, ~130 MB), run with `fastembed` (ONNX runtime, no PyTorch).
-- Two passes on each article:
-  - Match your existing tags: embed tag names and the article, keep tags above a similarity threshold.
-  - Keyphrases (KeyBERT method): candidate 1–2 word phrases from the text, ranked by similarity to the article, diversified so they're not near-duplicates.
-- Up to 3 model tags per item, only above a similarity threshold.
-- Model baked into the image at build time; the worker doesn't download at run time.
+- Round 2: `llama3.2:3b` run by Ollama in its own container. Replaces the embedding model (below).
+- The model reads the title, description and start of the article, plus your tags in use, and replies with up to 3 tags as JSON. It reuses your tags where they fit.
+- Up to 3 model tags per item. Same normalising and removal rules as other tags.
 
 ### Page tags
 - trafilatura's `categories` and `tags` metadata, kept on extract. Up to 5, normalised.
@@ -30,7 +27,7 @@
 
 ### Worker
 - Page tags added during extract.
-- New task `tag_item`, queued after a successful fetch. A model failure never fails the fetch.
+- New task `tag_item`, queued after a successful fetch on its own `tags` queue. A separate `tagger` worker runs it, so a slow model never holds up fetches. A model failure never fails the fetch.
 - `autotag` management command to backfill existing items.
 
 ### API
@@ -49,20 +46,25 @@
 - Dashboard: tags on each item, click to filter, a clear-filter link.
 
 ## Out of scope
-- Tag editor (rename, merge, delete), folders, bulk tagging, LLM tagging, non-English models.
+- Tag editor (rename, merge, delete), folders, bulk tagging, cloud AI tagging, GPU.
 
 ## Agreed
-- `fastembed` added; model downloaded at image build time.
-- Spec: automatic tagging (page tags + local model) in scope; LLM or cloud AI tagging stays out.
+- Spec: automatic tagging (page tags + local model) in scope; cloud AI tagging stays out.
+- Round 2: Ollama with `llama3.2:3b`, replacing fastembed. New `ollama` container and `tagger` worker. Spec: local LLM tagging in scope.
 
 ## Review round 1
 - Reusing existing tags was too loose ("british online" landed on an unrelated article). Fix: a higher bar for reuse, and the tag's words must appear in the article.
 - Tag names are ASCII lowercase kebab-case: `artificial-intelligence`. a-z, 0-9, `+` and `#` (`c++`, `c#`); accents folded (`família` → `familia`).
 - The tag input turns what a phone keyboard types into that form.
 
+## Review round 2
+- The embedding model's tags were weak: keyphrases from the text, not topics. Removed it and fastembed.
+- Model tags now come from `llama3.2:3b` via Ollama, run locally.
+
 ---
 
 ## Claude Notes
+- Round 2 (Ollama), below the round 1 notes, replaces the embedding model notes.
 - Why embeddings over a zero-shot classifier (e.g. `MoritzLaurer/deberta-v3-base-zeroshot-v2.0`): zero-shot needs a label list, and you start with no tags, so it would need a starter taxonomy; it also runs one pass per label (slow on CPU with many tags). Embeddings give new keyphrases on day one, then increasingly reuse your own tags, and the same model can power semantic search later.
 - Why not a fixed topic classifier (IPTC news, tweet-topic): coarse fixed categories ("science & technology") that won't match how you tag.
 - Text fed to the model: title + description + first 2,000 characters of the text; the model reads at most 512 tokens.
@@ -95,3 +97,14 @@
   - No rewriting during IME composition (predictive text), which breaks input on Android.
 - After the change, each tag add or remove refetches the item: two quick adds can finish out of order.
 - Dev data, round 1: your 3 manual tags and 3 removals were kept and converted. Model tags were cleared and `autotag` re-run once; a second run added nothing.
+- Round 2, Ollama:
+  - Image `ollama/ollama:0.40.16`. Models in `${DATA_DIR}/ollama`, not in the image. One-off `ollama-pull` service downloads `llama3.2:3b` (2 GB) if missing; the `tagger` waits for it.
+  - Ollama idles as a small server. It loads the model into memory on a request (about 3 GB of RAM) and unloads it after 5 minutes with none (`keep_alive`).
+  - `OLLAMA_URL` and `OLLAMA_MODEL` settings, defaulting to the Compose service and `llama3.2:3b`. An empty `OLLAMA_URL` turns model tags off.
+  - Reply forced to a JSON schema (`{"tags": [...]}`), temperature 0.
+  - Prompt: title, description, first 2,500 characters, then your tags in use, most used first (up to 200). The tag list after the article made the 3B model reuse it more (`artificial-intelligence` on two AI articles, where before it made up `ai-generated`).
+  - Speed on the dev machine (8 cores, CPU only): 6–17 s per article through the `tagger`, with the model loaded. Trial runs from a shell while comparing prompts took 30–45 s.
+  - Ollama uses about 4 GB of RAM with the model loaded, 4 cores while answering.
+  - Dev data, round 2: the embedding model's tags and unused tags deleted, your manual tags and removals kept, all 8 items re-queued. "The Part About the Machines" got no model tags: it already has your three.
+  - `tagger` is on the internal network only; `ollama` also has egress, to pull models.
+  - Tags with no items aren't offered to the model.
