@@ -13,6 +13,9 @@ CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SIGNUP_ENABLED = env.bool("SIGNUP_ENABLED", default=False)
 ITEM_SOURCES_DIR = Path(env("ITEM_SOURCES_DIR", default="/data/item_sources"))
+# Model tags (apps/items/autotag.py). Empty URL: no model tags.
+OLLAMA_URL = env("OLLAMA_URL", default="http://ollama:11434")
+OLLAMA_MODEL = env("OLLAMA_MODEL", default="llama3.2:3b")
 
 INSTALLED_APPS = [
     "django.contrib.admin",

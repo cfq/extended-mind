@@ -19,6 +19,9 @@ services:
   worker:
     <<: *dev
 
+  tagger:
+    <<: *dev
+
   migrate:
     <<: *dev
 

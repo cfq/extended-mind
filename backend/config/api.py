@@ -2,6 +2,7 @@ from ninja import NinjaAPI
 
 from apps.core.api import router as core_router
 from apps.items.api import router as items_router
+from apps.items.api import tags_router
 from apps.users.api import auth_router, users_router
 from apps.users.tokens_api import router as tokens_router
 
@@ -10,4 +11,5 @@ api.add_router("/", core_router)
 api.add_router("/auth", auth_router)
 api.add_router("/users", users_router)
 api.add_router("/items", items_router)
+api.add_router("/tags", tags_router)
 api.add_router("/tokens", tokens_router)

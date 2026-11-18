@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { api } from "./api";
+import { type ItemTag, type Tag, tagsKey } from "./tags";
 
 export type ItemStatus = "pending" | "fetching" | "done" | "failed";
 
@@ -17,6 +18,7 @@ export type ItemSummary = {
   published_at: string | null;
   created_at: string;
   fetched_at: string | null;
+  tags: ItemTag[];
 };
 
 export type Item = ItemSummary & {
@@ -25,11 +27,17 @@ export type Item = ItemSummary & {
 
 export const itemsKey = ["items"];
 
-export function useItems() {
+// Unfiltered list is ["items"]; a tag filter adds {tag}.
+export function useItems(tag?: string) {
   return useQuery({
-    queryKey: itemsKey,
-    queryFn: () => api<ItemSummary[]>("/items"),
+    queryKey: tag ? [...itemsKey, { tag }] : itemsKey,
+    queryFn: () =>
+      api<ItemSummary[]>(tag ? `/items?tag=${encodeURIComponent(tag)}` : "/items"),
   });
+}
+
+export function useTags() {
+  return useQuery({ queryKey: tagsKey, queryFn: () => api<Tag[]>("/tags") });
 }
 
 export function useItem(id: string) {

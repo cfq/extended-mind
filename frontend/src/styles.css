@@ -171,7 +171,7 @@ button.danger {
   padding: 0;
 }
 
-.items li {
+.items > li {
   padding: 0.75rem 0;
   border-bottom: 1px solid var(--border);
 }
@@ -264,6 +264,118 @@ button.danger {
   padding: 0.4rem 0.5rem;
   border-bottom: 1px solid var(--border);
   text-align: left;
+}
+
+/* Tags: chips, and the combo box that adds them. Sized in em, so they
+   follow the surrounding text. Automatic tags have a dashed border. */
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35em;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  padding: 0.15em 0.6em;
+  font-size: 0.8em;
+  line-height: 1.4;
+  color: inherit;
+  text-decoration: none;
+  border: 1px solid var(--tag-border, var(--border));
+  border-radius: 999px;
+}
+
+.tag-page,
+.tag-model {
+  border-style: dashed;
+}
+
+a.tag:hover {
+  border-color: currentColor;
+}
+
+.tag-remove {
+  padding: 0;
+  font-size: 1.15em;
+  line-height: 1;
+  color: inherit;
+  background: none;
+  border-radius: 0;
+  opacity: 0.55;
+}
+
+.tag-remove:hover {
+  opacity: 1;
+}
+
+.tag-input {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35em;
+}
+
+.tag-input .tag-list {
+  display: contents;
+}
+
+.tag-combo {
+  position: relative;
+  flex: 1;
+  min-width: 8em;
+}
+
+.tag-combo input {
+  width: 100%;
+  padding: 0.2em 0;
+  font-size: 0.8em;
+  color: inherit;
+  background: none;
+  border: none;
+  border-radius: 0;
+}
+
+.tag-options {
+  position: absolute;
+  z-index: 10;
+  top: 100%;
+  left: 0;
+  min-width: 12em;
+  max-height: 16em;
+  overflow-y: auto;
+  margin: 0.25em 0 0;
+  padding: 0.25em 0;
+  font-size: 0.8em;
+  list-style: none;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.12);
+}
+
+.tag-options li {
+  padding: 0.35em 0.75em;
+  cursor: pointer;
+}
+
+.tag-options li.active {
+  background: var(--bg);
+}
+
+.item-tags {
+  margin-top: 0.4rem;
+}
+
+.tag-filter {
+  margin-bottom: 1rem;
+  color: var(--muted);
 }
 
 /* Reading view: the article page. Sized in em off its own 20px base. */
@@ -381,6 +493,16 @@ body:has(.reading) {
 
 .reading-status {
   margin-bottom: 1.5em;
+}
+
+.reading-tags {
+  --tag-border: var(--r-rule);
+  margin-bottom: 2em;
+}
+
+.reading-tags .tag-remove,
+.reading-tags input::placeholder {
+  color: var(--r-meta);
 }
 
 .reading-standfirst {

@@ -9,6 +9,8 @@ flowchart LR
     App -->|items, jobs| DB[(Postgres)]
     DB <-->|jobs, metadata| Worker
     Worker -->|fetch| Web((Internet))
+    Tagger -->|tag| Ollama
+    DB <-->|jobs| Tagger
     Files[(File storage)] <-->|read/write| Worker
     App -->|serves| Files
     App -->|email| SES[AWS SES]
@@ -22,6 +24,8 @@ flowchart LR
 - Dockerised
 - Python/Django service
 - Worker
+- Tagger: worker for model tagging jobs
+- Ollama: local LLM server for tagging
 - Postgres
 - Local filesystem for saving files
 

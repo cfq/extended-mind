@@ -1,11 +1,11 @@
 from django.core.management.base import BaseCommand
 
-from apps.items import fetch
-from apps.items.models import Item, ItemSource
+from apps.items import fetch, tagging
+from apps.items.models import Item, ItemSource, ItemTag
 
 
 class Command(BaseCommand):
-    help = "Re-run extraction on items from their saved HTML. No network."
+    help = "Re-run extraction and page tags from saved HTML. No network."
 
     def handle(self, *args, **options):
         done = failed = 0
@@ -18,12 +18,13 @@ class Command(BaseCommand):
             items_with_source.add(item.pk)
             try:
                 # Bytes: trafilatura detects the encoding itself.
-                fetch.extract(item, source.path.read_bytes())
+                tags = fetch.extract(item, source.path.read_bytes())
             except (OSError, fetch.FetchError) as e:
                 failed += 1
                 self.stderr.write(f"{item.pk}: {e}")
                 continue
             item.save()
+            tagging.add_tags(item, tags, ItemTag.Source.PAGE)
             done += 1
         skipped = Item.objects.exclude(pk__in=items_with_source).count()
         self.stdout.write(f"Re-extracted {done}, skipped {skipped}, failed {failed}.")

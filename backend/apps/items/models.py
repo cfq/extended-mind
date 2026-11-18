@@ -68,6 +68,60 @@ class ItemSource(models.Model):
         return self.item.sources_dir / self.filename
 
 
+class Tag(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="tags"
+    )
+    # Normalised (tagging.normalize): lowercase kebab-case.
+    name = models.CharField(max_length=50)
+    slug = models.SlugField(max_length=60)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name"]
+        constraints = [
+            models.UniqueConstraint(fields=["user", "name"], name="tag_user_name"),
+            models.UniqueConstraint(fields=["user", "slug"], name="tag_user_slug"),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
+class ItemTag(models.Model):
+    class Source(models.TextChoices):
+        MANUAL = "manual"
+        PAGE = "page"
+        MODEL = "model"
+
+    item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name="item_tags")
+    tag = models.ForeignKey(Tag, on_delete=models.CASCADE, related_name="item_tags")
+    source = models.CharField(max_length=16, choices=Source.choices)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["item", "tag"], name="itemtag_item_tag"),
+        ]
+
+
+class ItemTagRemoval(models.Model):
+    """A tag removed from an item, so automatic tagging doesn't re-add it."""
+
+    item = models.ForeignKey(
+        Item, on_delete=models.CASCADE, related_name="tag_removals"
+    )
+    name = models.CharField(max_length=50)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["item", "name"], name="itemtagremoval_item_name"
+            ),
+        ]
+
+
 @receiver(post_delete, sender=Item)
 def delete_sources_dir(sender, instance, **kwargs):
     shutil.rmtree(instance.sources_dir, ignore_errors=True)

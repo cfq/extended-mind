@@ -22,7 +22,43 @@ services:
   worker:
     <<: *app
     pull_policy: never
-    command: ["python", "manage.py", "procrastinate", "worker"]
+    command: ["python", "manage.py", "procrastinate", "worker", "--queues", "default"]
+    networks: [backend, egress]
+
+  # Model tagging jobs, one at a time; they can take a minute on CPU.
+  tagger:
+    <<: *app
+    pull_policy: never
+    command: ["python", "manage.py", "procrastinate", "worker", "--queues", "tags"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      ollama-pull:
+        condition: service_completed_successfully
+    networks: [backend]
+
+  # Local LLM server. Idle until asked; loads the model into memory on a
+  # request and unloads it after 5 minutes without one.
+  ollama:
+    image: ollama/ollama:0.40.16
+    restart: unless-stopped
+    volumes:
+      - ${DATA_DIR:-./data}/ollama:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      retries: 10
+    networks: [backend, egress]
+
+  # One-off: downloads the tagging model if missing, then exits.
+  ollama-pull:
+    image: ollama/ollama:0.40.16
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    command: ["pull", "llama3.2:3b"]
+    depends_on:
+      ollama:
+        condition: service_healthy
     networks: [backend, egress]
 
   # One-off: applies migrations, then exits.
