@@ -39,6 +39,9 @@
 - Adding a tag shows the chip at once, greyed; full colour once the server confirms.
 - Tags don't reorder while you add or accept; a fresh page load sorts them.
 
+## Review round 3
+- iOS zoomed into the tag input and stayed zoomed. Inputs are at least 16px on touch screens.
+
 ---
 
 ## Claude Notes
@@ -54,3 +57,4 @@
   - Pending adds come from TanStack Query's `useMutationState` (mutation key `["item-tags", id]`), so several quick adds each show a chip. A failed add drops its chip and shows the error.
   - A pending chip has no ×, isn't a link, and Backspace skips it. An accepted suggestion greys in place, then turns solid.
   - `keepOrder`: the first render uses the sorted order; after that, chips keep their place and new ones go at the end.
+- Round 3: iOS Safari zooms into inputs with text under 16px. Under `pointer: coarse`, inputs, textareas and selects get `max(16px, …)`. Not `maximum-scale=1` in the viewport: that blocks pinch zoom on Android.

@@ -692,3 +692,17 @@ button.quiet:hover {
     hyphens: auto;
   }
 }
+
+/* iOS Safari zooms into inputs under 16px and stays zoomed. Touch
+   screens get at least 16px; pinch zoom still works. */
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: max(16px, 1em);
+  }
+
+  .tag-combo input {
+    font-size: max(16px, 0.8em);
+  }
+}
