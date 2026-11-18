@@ -2,9 +2,11 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Markdown from "react-markdown";
 import { useNavigate, useParams } from "react-router";
 
+import { TagInput } from "../components/TagInput";
 import { ApiError, api } from "../lib/api";
-import { type Item, displayTitle, itemsKey, useItem } from "../lib/items";
+import { type Item, displayTitle, itemsKey, useItem, useTags } from "../lib/items";
 import { articleMeta } from "../lib/meta";
+import { type ItemTag, tagsKey } from "../lib/tags";
 import { NotFound } from "./NotFound";
 
 export function ItemPage() {
@@ -18,6 +20,26 @@ export function ItemPage() {
     onSuccess: (updated) => {
       queryClient.setQueryData([...itemsKey, id], updated);
       queryClient.invalidateQueries({ queryKey: itemsKey, exact: true });
+    },
+  });
+
+  const { data: allTags = [] } = useTags();
+
+  // Both return the item's tags after the change.
+  const changeTags = useMutation({
+    mutationFn: ({ add, remove }: { add?: string; remove?: string }) =>
+      add
+        ? api<ItemTag[]>(`/items/${id}/tags`, { method: "POST", body: { name: add } })
+        : api<ItemTag[]>(`/items/${id}/tags/${encodeURIComponent(remove ?? "")}`, {
+            method: "DELETE",
+          }),
+    onSuccess: (tags) => {
+      queryClient.setQueryData<Item>([...itemsKey, id], (old) => old && { ...old, tags });
+      queryClient.invalidateQueries({ queryKey: tagsKey });
+      queryClient.invalidateQueries({
+        queryKey: itemsKey,
+        predicate: (query) => query.queryKey.length === 1 || typeof query.queryKey[1] === "object",
+      });
     },
   });
 
@@ -49,6 +71,16 @@ export function ItemPage() {
       </header>
 
       <div className="reading-column">
+        <div className="reading-tags">
+          <TagInput
+            tags={item.tags}
+            allTags={allTags}
+            onAdd={(name) => changeTags.mutate({ add: name })}
+            onRemove={(slug) => changeTags.mutate({ remove: slug })}
+          />
+          {changeTags.error && <p className="error">{changeTags.error.message}</p>}
+        </div>
+
         {item.status !== "done" && (
           <p className="reading-meta reading-status">
             <span>{item.status === "failed" ? item.error || "Failed" : `${item.status}…`}</span>

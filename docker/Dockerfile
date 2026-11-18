@@ -23,6 +23,11 @@ ARG DEV=false
 COPY backend/pyproject.toml backend/uv.lock ./
 RUN uv sync --locked $([ "$DEV" = "true" ] || echo --no-dev)
 
+# Tagging model (apps/items/autotag.py), baked in so workers never download it.
+ENV FASTEMBED_CACHE_PATH=/opt/models
+RUN python -c "from fastembed import TextEmbedding; TextEmbedding('BAAI/bge-small-en-v1.5')"
+ENV HF_HUB_OFFLINE=1
+
 COPY . /app
 COPY --from=frontend /frontend/dist /opt/frontend
 

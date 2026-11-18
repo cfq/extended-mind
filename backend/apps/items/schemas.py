@@ -9,6 +9,30 @@ class ItemIn(Schema):
     url: str
 
 
+class TagIn(Schema):
+    name: str
+
+
+class TagOut(Schema):
+    name: str
+    slug: str
+    count: int
+
+
+class ItemTagOut(Schema):
+    name: str
+    slug: str
+    source: str
+
+    @staticmethod
+    def resolve_name(obj):
+        return obj.tag.name
+
+    @staticmethod
+    def resolve_slug(obj):
+        return obj.tag.slug
+
+
 class ItemSummaryOut(Schema):
     id: str
     url: str
@@ -22,10 +46,20 @@ class ItemSummaryOut(Schema):
     published_at: date | None
     created_at: datetime
     fetched_at: datetime | None
+    tags: list[ItemTagOut]
 
     @staticmethod
     def resolve_id(obj):
         return ids.encode(obj.id)
+
+    @staticmethod
+    def resolve_tags(obj):
+        return item_tags(obj)
+
+
+def item_tags(item) -> list:
+    # Sorted in Python so a prefetch_related cache is used.
+    return sorted(item.item_tags.all(), key=lambda link: link.tag.name)
 
 
 class ItemOut(ItemSummaryOut):

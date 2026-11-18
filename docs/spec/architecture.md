@@ -37,6 +37,7 @@ flowchart LR
 - yt-dlp
 - gallery-dl
 - trafilatura
+- fastembed (local embedding model for tagging, baked into the image)
 - Playwright
 - ffmpeg
 - exiftool

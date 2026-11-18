@@ -2,8 +2,9 @@ import uuid
 
 import pytest
 
-from apps.items import ids
-from apps.items.models import Item
+from apps.items import ids, tagging
+from apps.items.models import Item, ItemTag
+from apps.users.models import ApiToken
 
 ITEMS = "/api/v1/items"
 
@@ -142,7 +143,109 @@ def test_delete_other_users_item(client, other_user, item):
         ("get", f"{ITEMS}/{'0' * 22}"),
         ("post", f"{ITEMS}/{'0' * 22}/retry"),
         ("delete", f"{ITEMS}/{'0' * 22}"),
+        ("post", f"{ITEMS}/{'0' * 22}/tags"),
+        ("delete", f"{ITEMS}/{'0' * 22}/tags/x"),
+        ("get", "/api/v1/tags"),
     ],
 )
 def test_requires_login(client, db, method, path):
     assert getattr(client, method)(path).status_code == 401
+
+
+# Tags
+
+
+def add_tag(client, item, name):
+    return client.post(
+        f"{url_for(item)}/tags", {"name": name}, content_type="application/json"
+    )
+
+
+def test_item_has_tags(user_client, item):
+    tagging.add_tags(item, ["design", "art"], ItemTag.Source.PAGE)
+
+    body = user_client.get(url_for(item)).json()
+
+    assert body["tags"] == [
+        {"name": "art", "slug": "art", "source": "page"},
+        {"name": "design", "slug": "design", "source": "page"},
+    ]
+    listed = next(i for i in user_client.get(ITEMS).json() if i["id"] == body["id"])
+    assert listed["tags"] == body["tags"]
+
+
+def test_add_tag(user_client, item):
+    response = add_tag(user_client, item, "  Open Source ")
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {"name": "open source", "slug": "open-source", "source": "manual"}
+    ]
+
+
+@pytest.mark.parametrize("name", ["", "   ", "!!!", "x" * 51])
+def test_add_tag_invalid(user_client, item, name):
+    assert add_tag(user_client, item, name).status_code == 400
+    assert not item.item_tags.exists()
+
+
+def test_remove_tag(user_client, item):
+    tagging.add_tags(item, ["art", "design"], ItemTag.Source.MODEL)
+
+    response = user_client.delete(f"{url_for(item)}/tags/art")
+
+    assert response.status_code == 200
+    assert [t["name"] for t in response.json()] == ["design"]
+    assert item.tag_removals.filter(name="art").exists()
+
+
+def test_remove_unknown_tag(user_client, item):
+    assert user_client.delete(f"{url_for(item)}/tags/nope").status_code == 404
+
+
+def test_tags_on_other_users_item(client, other_user, item):
+    client.force_login(other_user)
+
+    assert add_tag(client, item, "art").status_code == 404
+    assert client.delete(f"{url_for(item)}/tags/art").status_code == 404
+
+
+def test_list_tags_with_counts(user_client, user, other_user, item):
+    other = Item.objects.create(user=user, url="https://x.test", url_submitted="x")
+    tagging.add_tags(item, ["art", "design"], ItemTag.Source.MANUAL)
+    tagging.add_tags(other, ["art"], ItemTag.Source.MANUAL)
+    tagging.get_or_create_tag(user, "unused")
+    tagging.get_or_create_tag(other_user, "theirs")
+
+    response = user_client.get("/api/v1/tags")
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {"name": "art", "slug": "art", "count": 2},
+        {"name": "design", "slug": "design", "count": 1},
+        {"name": "unused", "slug": "unused", "count": 0},
+    ]
+
+
+def test_filter_items_by_tag(user_client, item):
+    tagging.add_tags(item, ["art"], ItemTag.Source.MANUAL)
+
+    response = user_client.get(ITEMS, {"tag": "art"})
+
+    assert [i["id"] for i in response.json()] == [ids.encode(item.id)]
+    assert user_client.get(ITEMS, {"tag": "nope"}).json() == []
+
+
+def test_tags_with_token(client, user, item):
+    _, key = ApiToken.create(user, "test")
+    auth = {"HTTP_AUTHORIZATION": f"Bearer {key}"}
+
+    response = client.post(
+        f"{url_for(item)}/tags",
+        {"name": "art"},
+        content_type="application/json",
+        **auth,
+    )
+
+    assert response.status_code == 200
+    assert client.get("/api/v1/tags", **auth).status_code == 200

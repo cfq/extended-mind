@@ -38,8 +38,9 @@
 - Logging, monitoring
 - Inbox workflow, everything gets saved into an unsorted pile
 - Editing/adding tags, notes for items
+- Automatic tagging: tags the page declares, plus a small local model (no external service)
 - Editor for tags, projects
 - Search, postgres full-text search for now
 
 ## Out of scope
-- Playlists/channels/profiles, email verification, sharing, offline, external search, S3, backups, quotas, dead-link checks, AI tagging.
+- Playlists/channels/profiles, email verification, sharing, offline, external search, S3, backups, quotas, dead-link checks, LLM or cloud AI tagging.
