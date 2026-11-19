@@ -190,14 +190,15 @@ def fetch_browser(item: Item, url: str, attempts: list[Attempt]):
     except browser.BrowserError as e:
         attempt.finish(FetchAttempt.Outcome.ERROR, message=str(e))
         return None
-    attempt.finish(FetchAttempt.Outcome.OK, visit.status)
+    message = "" if visit.consent == "none" else f"Cookie banner {visit.consent}."
+    attempt.finish(FetchAttempt.Outcome.OK, visit.status, message)
     return visit, attempt
 
 
 def fetch(item: Item):
     """Plain HTTP first; HTML pages (or blocked ones) then through the
     browser for the rendered page and screenshots. Extracts from the
-    rendered HTML, falling back to the plain one. Every try is logged."""
+    plain HTML, falling back to the rendered one. Every try is logged."""
     attempts: list[Attempt] = []
     try:
         fetch_into(item, attempts)
@@ -216,12 +217,15 @@ def fetch_into(item: Item, attempts: list[Attempt]):
     browsed = fetch_browser(item, http.url if http else item.url, attempts)
     visit, browser_attempt = browsed if browsed else (None, None)
 
+    # Plain first: sites often send the full article, then scripts add
+    # consent dialogs and cut it at the paywall. The rendered page is for
+    # pages built by JavaScript, where the plain one has no article.
     candidates = []
-    if visit:
-        candidates.append((visit.html, browser_attempt))
     if http:
         html = http.body.decode(http.encoding or "utf-8", errors="replace")
         candidates.append((html, attempts[0]))
+    if visit:
+        candidates.append((visit.html, browser_attempt))
     if not candidates:
         raise FetchError(attempts[-1].row.message or "Couldn't get the page.")
 

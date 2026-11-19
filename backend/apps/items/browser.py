@@ -13,6 +13,9 @@ LOAD_TIMEOUT = 45_000
 # After load, waits for the network to go quiet; many pages never do.
 SETTLE_TIMEOUT = 10_000
 CHALLENGE_TIMEOUT = 15
+# Cookie banners: how long to look for one, and to wait for it to go.
+CONSENT_FIND_TIMEOUT = 3
+CONSENT_TIMEOUT = 10
 SCROLL_STEP = 1000
 # The page as it ends up: a challenge that never cleared stays on one of
 # these; one that cleared loads the real page.
@@ -51,6 +54,12 @@ async ([step, pause, max]) => {
 """
 
 
+# autoconsent's standalone bundle keeps its messages here.
+CONSENT_MESSAGES_JS = (
+    "() => (window.autoconsentStandalone?.messages ?? []).map((m) => m.type)"
+)
+
+
 class BrowserError(Exception):
     pass
 
@@ -69,6 +78,8 @@ class Visit:
     html: str
     head: bytes
     full: bytes
+    # Cookie banner: "none", "dismissed", or "not dismissed".
+    consent: str = "none"
 
 
 def is_challenge(title: str, html: str) -> bool:
@@ -76,6 +87,26 @@ def is_challenge(title: str, html: str) -> bool:
     return any(t in title for t in CHALLENGE_TITLES) or any(
         t in html for t in CHALLENGE_TEXT
     )
+
+
+def dismiss_consent(page) -> str:
+    """Waits for autoconsent (injected into every page) to find and opt
+    out of a cookie banner."""
+    found_by = time.monotonic() + CONSENT_FIND_TIMEOUT
+    done_by = time.monotonic() + CONSENT_TIMEOUT
+    while time.monotonic() < done_by:
+        try:
+            messages = set(page.evaluate(CONSENT_MESSAGES_JS))
+        except Exception:
+            messages = set()
+        if messages & {"optOutResult", "autoconsentDone"}:
+            # Let the banner's closing animation finish.
+            page.wait_for_timeout(500)
+            return "dismissed"
+        if not messages & {"popupFound", "cmpDetected"} and time.monotonic() > found_by:
+            return "none"
+        page.wait_for_timeout(250)
+    return "not dismissed"
 
 
 def visit(url: str) -> Visit:
@@ -95,6 +126,8 @@ def visit(url: str) -> Visit:
                 context = browser.new_context(
                     viewport=VIEWPORT, user_agent=USER_AGENT, locale="en-US"
                 )
+                if settings.AUTOCONSENT_JS.exists():
+                    context.add_init_script(path=str(settings.AUTOCONSENT_JS))
                 page = context.new_page()
                 # Main document loads, including reloads by challenge scripts.
                 loads: list[int] = []
@@ -122,6 +155,7 @@ def visit(url: str) -> Visit:
                 if status in BLOCKED_STATUSES:
                     raise Blocked(f"HTTP {status}", status)
 
+                consent = dismiss_consent(page)
                 head = page.screenshot(type="png")
                 height = page.evaluate(
                     SCROLL_JS, [SCROLL_STEP, int(SCROLL_PAUSE * 1000), MAX_HEIGHT]
@@ -145,6 +179,7 @@ def visit(url: str) -> Visit:
                     html=page.content(),
                     head=head,
                     full=full,
+                    consent=consent,
                 )
             finally:
                 browser.close()
