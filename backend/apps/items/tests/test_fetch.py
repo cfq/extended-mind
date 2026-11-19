@@ -93,9 +93,10 @@ def test_download_follows_redirects(transport):
 
     transport(handler)
 
-    final_url, mime, encoding, body = fetch.download("https://example.com/old")
+    final_url, mime, encoding, body, status = fetch.download("https://example.com/old")
 
     assert final_url == "https://example.com/new"
+    assert status == 200
     assert mime == "text/html"
     assert encoding == "utf-8"
     assert body == b"<p>hi</p>"
@@ -108,7 +109,9 @@ def test_download_non_html_has_no_body(transport):
         )
     )
 
-    final_url, mime, encoding, body = fetch.download("https://example.com/a.pdf")
+    final_url, mime, encoding, body, status = fetch.download(
+        "https://example.com/a.pdf"
+    )
 
     assert mime == "application/pdf"
     assert body is None
@@ -138,7 +141,9 @@ def downloads(monkeypatch):
 
     def use(final_url, mime="text/html", body=None):
         monkeypatch.setattr(
-            fetch, "download", lambda url: (final_url, mime, "utf-8", body)
+            fetch,
+            "download",
+            lambda url: fetch.Download(final_url, mime, "utf-8", body, 200),
         )
 
     return use

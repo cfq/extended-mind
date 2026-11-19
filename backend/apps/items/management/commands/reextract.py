@@ -13,13 +13,17 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         done = failed = 0
-        sources = ItemSource.objects.filter(kind=ItemSource.Kind.HTML).select_related(
-            "item"
-        )
-        items_with_source = set()
+        # The rendered page when there is one, as the fetch prefers it.
+        best = {}
+        sources = ItemSource.objects.filter(
+            kind__in=[ItemSource.Kind.HTML, ItemSource.Kind.RENDERED]
+        ).select_related("item")
         for source in sources:
+            if source.item_id not in best or source.kind == ItemSource.Kind.RENDERED:
+                best[source.item_id] = source
+        items_with_source = set(best)
+        for source in best.values():
             item = source.item
-            items_with_source.add(item.pk)
             try:
                 # Bytes: trafilatura detects the encoding itself.
                 tags = fetch.extract(item, source.path.read_bytes())

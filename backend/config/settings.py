@@ -16,6 +16,8 @@ ITEM_SOURCES_DIR = Path(env("ITEM_SOURCES_DIR", default="/data/item_sources"))
 # Model tags (apps/items/autotag.py). Empty URL: no model tags.
 OLLAMA_URL = env("OLLAMA_URL", default="http://ollama:11434")
 OLLAMA_MODEL = env("OLLAMA_MODEL", default="llama3.2:3b")
+# Playwright server (apps/items/browser.py). Empty URL: plain fetch only.
+BROWSER_URL = env("BROWSER_URL", default="ws://browser:3000/")
 
 INSTALLED_APPS = [
     "django.contrib.admin",

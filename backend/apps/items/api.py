@@ -81,14 +81,22 @@ def delete_item(request, item_id: str):
     return Status(204, None)
 
 
-# Saved article images. Their URLs are stored in item markdown
+SERVED_KINDS = [
+    ItemSource.Kind.IMAGE,
+    ItemSource.Kind.SCREENSHOT_FULL,
+    ItemSource.Kind.SCREENSHOT_HEAD,
+]
+
+
+# Saved article images and screenshots. Their URLs are stored in item markdown
 # (images.local_url): keep this path stable.
 @router.get("/{item_id}/sources/{filename}")
 def get_item_source(request, item_id: str, filename: str):
     item = get_item(request, item_id)
-    # Images only: a saved HTML page served from here could run scripts.
+    # Images and screenshots only: a saved HTML page served from here
+    # could run scripts.
     source = get_object_or_404(
-        ItemSource, item=item, kind=ItemSource.Kind.IMAGE, filename=filename
+        ItemSource, item=item, kind__in=SERVED_KINDS, filename=filename
     )
     try:
         file = source.path.open("rb")

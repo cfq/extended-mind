@@ -97,6 +97,24 @@ export function ItemPage() {
           <a href={item.url} target="_blank" rel="noreferrer">
             Original
           </a>
+          {(item.screenshots.full || item.screenshots.head) && (
+            <span>
+              Screenshots:{" "}
+              {[
+                ["full", item.screenshots.full],
+                ["head", item.screenshots.head],
+              ]
+                .filter(([, url]) => url)
+                .map(([label, url], i) => (
+                  <span key={label}>
+                    {i > 0 && ", "}
+                    <a href={url ?? ""} target="_blank" rel="noreferrer">
+                      {label}
+                    </a>
+                  </span>
+                ))}
+            </span>
+          )}
         </p>
       </header>
 
