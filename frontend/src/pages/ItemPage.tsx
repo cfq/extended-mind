@@ -1,5 +1,5 @@
 import { useMutation, useMutationState, useQueryClient } from "@tanstack/react-query";
-import Markdown from "react-markdown";
+import Markdown, { type Components } from "react-markdown";
 import { useNavigate, useParams } from "react-router";
 
 import { TagInput } from "../components/TagInput";
@@ -8,6 +8,29 @@ import { type Item, displayTitle, itemsKey, useItem, useTags } from "../lib/item
 import { articleMeta } from "../lib/meta";
 import { type ItemTag, tagsKey } from "../lib/tags";
 import { NotFound } from "./NotFound";
+
+// In-page anchors from extraction ([](#anchor:id)) and links to them
+// (#id), prefixed so they can't clash with the app's own ids.
+const anchorId = (id: string) => `note-${decodeURIComponent(id)}`;
+
+const markdownComponents: Components = {
+  img: ({ node: _, ...props }) => <img loading="lazy" {...props} />,
+  a: ({ node: _, href = "", children, ...props }) => {
+    if (href.startsWith("#anchor:")) return <span id={anchorId(href.slice(8))} />;
+    if (href.startsWith("#")) {
+      return (
+        <a href={`#${anchorId(href.slice(1))}`} {...props}>
+          {children}
+        </a>
+      );
+    }
+    return (
+      <a href={href} {...props}>
+        {children}
+      </a>
+    );
+  },
+};
 
 export function ItemPage() {
   const { id = "" } = useParams();
@@ -111,11 +134,7 @@ export function ItemPage() {
         {item.markdown && (
           <div className="reading-body">
             {/* No raw HTML rendering: never add rehype-raw. */}
-            <Markdown
-              components={{ img: ({ node: _, ...props }) => <img loading="lazy" {...props} /> }}
-            >
-              {item.markdown}
-            </Markdown>
+            <Markdown components={markdownComponents}>{item.markdown}</Markdown>
           </div>
         )}
 

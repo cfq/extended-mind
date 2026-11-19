@@ -12,7 +12,7 @@ import trafilatura
 from django.utils.text import slugify
 from lxml import html as lxml_html
 
-from apps.items import ids
+from apps.items import cleanup, ids
 from apps.items.models import Item, ItemSource
 
 log = logging.getLogger(__name__)
@@ -109,6 +109,7 @@ def tidy_html(html: str | bytes, url: str) -> str | bytes:
         img.attrib.pop("srcset", None)
         img.attrib.pop("sizes", None)
 
+    cleanup.mark_anchors(tree)
     tree.make_links_absolute(url, resolve_base_href=True, handle_failures="ignore")
     return lxml_html.tostring(tree, encoding="unicode")
 

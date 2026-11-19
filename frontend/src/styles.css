@@ -706,3 +706,8 @@ button.quiet:hover {
     font-size: max(16px, 0.8em);
   }
 }
+
+/* Footnote and back-link targets in articles: a little room above. */
+.reading-body [id^="note-"] {
+  scroll-margin-top: 1.5em;
+}

@@ -119,7 +119,7 @@ def extract(item: Item, html: str | bytes) -> list[str]:
     item.author = (metadata and metadata.author) or ""
     item.site_name = (metadata and metadata.sitename) or ""
     item.published_at = parse_date(metadata and metadata.date)
-    item.markdown = cleanup.clean_markdown(markdown)
+    item.markdown = cleanup.clean_markdown(markdown, item.url)
     text = trafilatura.extract(html, url=item.url, output_format="txt") or ""
     item.text = cleanup.clean_text(text)
     if not metadata:

@@ -62,6 +62,9 @@
 - Fix two trafilatura defects in the saved markdown: an article saved twice (The Machines), and `<sup>`/`<sub>` left as raw HTML tags.
 - Art Nouveau's missing images stay a known gap for now.
 
+## Review round 2
+- Footnote links went to the original page, not the footnotes below. They now jump within the article, and the ↩︎ back-links jump back.
+
 ---
 
 ## Claude Notes
@@ -86,3 +89,9 @@
   - Also dropped: a pull-quote on Terence Eden's post that repeats a sentence of the reply above it word for word.
   - `<sup>`/`<sub>`: digits and `+-=()` become Unicode superscript/subscript; a footnote link keeps its link (`[¹](…)`); anything else becomes plain text (`19<sup>th</sup>` → `19th`). Raw HTML stays unrendered in the reading view.
   - Dev data re-extracted; the image jobs swapped links again without downloading.
+- Round 2, in-page links (`cleanup.mark_anchors`, `local_links`, `anchors`):
+  - Making links absolute turned `#fn-1` into the article's URL plus `#fn-1`; and trafilatura drops element ids, so there was no target either.
+  - Before extraction, each element an in-page link points to gets a text marker (`⁅anchor:id⁆`): block elements at their start, inline ones just before (climbing out of `<sup>`, so the footnote number stays a bare link and becomes a superscript).
+  - After extraction: markers become `[](#anchor:id)`; links to this page plus a fragment become `#fragment`. Markers are removed from the plain text.
+  - Reading view: `#anchor:id` renders as an empty `<span id="note-id">`; `#id` links go to `#note-id`. The prefix keeps article ids from clashing with the app's.
+  - Dev data: Undoing the Colonial-Capitalistic Unconscious has 10 footnotes and 10 back-links, all resolving. Art Nouveau's footnotes get anchors but its references lost their links in extraction (the fallback extractor again), so they don't link. Apple's word list and Scroll the Future get anchors on headings their tables of contents pointed at; the tables of contents aren't extracted, so the anchors are unused and invisible.
