@@ -57,9 +57,13 @@ services:
     restart: unless-stopped
     volumes:
       - ${DATA_DIR:-./data}/ollama:/root/.ollama
+    # Every check is two logged requests: often while starting, so the
+    # tagger waits briefly, then rarely.
     healthcheck:
       test: ["CMD", "ollama", "list"]
-      interval: 5s
+      start_period: 60s
+      start_interval: 5s
+      interval: 5m
       retries: 10
     networks: [backend, egress]
 
