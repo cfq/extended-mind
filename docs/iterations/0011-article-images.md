@@ -57,6 +57,11 @@
 - Resizing, thumbnails, format conversion.
 - The fetch log.
 
+## Review round 1
+- Compared trafilatura with Crawl4AI and Readability on the saved articles; trafilatura stays (results in Claude Notes).
+- Fix two trafilatura defects in the saved markdown: an article saved twice (The Machines), and `<sup>`/`<sub>` left as raw HTML tags.
+- Art Nouveau's missing images stay a known gap for now.
+
 ---
 
 ## Claude Notes
@@ -72,3 +77,12 @@
 - The sources endpoint serves `image` sources only; the saved HTML isn't served, as it would run scripts on our origin.
 - Formatting `apps/items` with ruff also rewrites the old migrations 0001 and 0003; those were restored, and only changed files are formatted.
 - Dev data: `reextract` over 10 items with saved HTML (1 without), then `save_images` for each. 13 images saved across 4 articles, 0 failed. Unauthenticated request to an image: 401.
+- Round 1, extractor comparison (throwaway container, no network, saved HTML; outputs kept locally in `tmp/bakeoff`, not committed):
+  - Crawl4AI fit markdown: no images in any article. Raw markdown: the whole page, menus, ads and icons (47 images on Terence Eden's post).
+  - Readability (readability-lxml + markdownify): cleanest Art Nouveau with 6 figures, but lost over half of Terence Eden's post and parts of two others. Drops Substack's section headings: its "unlikely candidates" rule removes elements whose class contains `header` (`header-anchor-post`). Hard-coded, no parameter; removing heading classes first brings them back (0 → 5).
+  - trafilatura: best text on 9 of 10.
+- Round 1, cleanup (`apps/items/cleanup.py`, run in `extract`):
+  - Repeats: a block of 80+ characters is dropped when 80% of its 8-word runs appeared earlier. The Machines' second copy is split into paragraphs differently, so exact matching missed most of it. The Machines: 7,211 → 4,392 words. Applied to the plain text too (by line), which the tagger reads.
+  - Also dropped: a pull-quote on Terence Eden's post that repeats a sentence of the reply above it word for word.
+  - `<sup>`/`<sub>`: digits and `+-=()` become Unicode superscript/subscript; a footnote link keeps its link (`[¹](…)`); anything else becomes plain text (`19<sup>th</sup>` → `19th`). Raw HTML stays unrendered in the reading view.
+  - Dev data re-extracted; the image jobs swapped links again without downloading.
