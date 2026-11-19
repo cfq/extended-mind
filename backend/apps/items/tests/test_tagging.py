@@ -125,7 +125,9 @@ def test_fetch_adds_page_tags(user, item_sources_dir, monkeypatch):
     monkeypatch.setattr(
         fetch,
         "download",
-        lambda url: (url, "text/html", "utf-8", TAGGED_HTML.encode()),
+        lambda url: fetch.Download(
+            url, "text/html", "utf-8", TAGGED_HTML.encode(), 200
+        ),
     )
 
     fetch.fetch(item)

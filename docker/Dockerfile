@@ -17,6 +17,12 @@ ENV PYTHONUNBUFFERED=1 \
     UV_PROJECT_ENVIRONMENT=/opt/venv \
     PATH="/opt/venv/bin:$PATH"
 
+# Playwright's bundled Node driver needs libatomic, even when it only
+# connects to the browser container.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libatomic1 \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app/backend
 
 ARG DEV=false

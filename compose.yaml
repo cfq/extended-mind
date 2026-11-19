@@ -23,7 +23,7 @@ services:
     <<: *app
     pull_policy: never
     command: ["python", "manage.py", "procrastinate", "worker", "--queues", "default"]
-    networks: [backend, egress]
+    networks: [backend, egress, browser]
 
   # Model tagging jobs, one at a time; they can take a minute on CPU.
   tagger:
@@ -36,6 +36,19 @@ services:
       ollama-pull:
         condition: service_completed_successfully
     networks: [backend]
+
+  # Headless Chromium for fetching pages and screenshots; the worker
+  # connects over a websocket. Its own networks: it can reach the web and
+  # the worker, nothing else.
+  browser:
+    build:
+      context: docker
+      dockerfile: browser.Dockerfile
+    image: extended-mind-browser
+    init: true
+    restart: unless-stopped
+    shm_size: 1gb
+    networks: [browser, browser-egress]
 
   # Local LLM server. Idle until asked; loads the model into memory on a
   # request and unloads it after 5 minutes without one.
@@ -89,3 +102,6 @@ networks:
   backend:
     internal: true
   egress: {}
+  browser:
+    internal: true
+  browser-egress: {}

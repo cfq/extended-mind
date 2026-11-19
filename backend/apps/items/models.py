@@ -50,13 +50,19 @@ class Item(models.Model):
 
 class ItemSource(models.Model):
     class Kind(models.TextChoices):
+        # The page as the plain HTTP fetch got it.
         HTML = "html"
+        # The browser's DOM after JavaScript ran.
+        RENDERED = "rendered"
         IMAGE = "image"
+        SCREENSHOT_FULL = "screenshot_full"
+        SCREENSHOT_HEAD = "screenshot_head"
 
     item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name="sources")
     kind = models.CharField(max_length=16, choices=Kind.choices)
     filename = models.CharField(max_length=255)
-    # Final URL after redirects.
+    # Pages and screenshots: final URL after redirects. Images: the URL as
+    # written in the article's markdown.
     url = models.URLField(max_length=2048)
     mime = models.CharField(max_length=255)
     size = models.PositiveBigIntegerField()
@@ -66,6 +72,35 @@ class ItemSource(models.Model):
     @property
     def path(self):
         return self.item.sources_dir / self.filename
+
+
+class FetchAttempt(models.Model):
+    """One try at getting a page. Failure details live here, not on Item."""
+
+    class Method(models.TextChoices):
+        HTTP = "http"
+        BROWSER = "browser"
+
+    class Outcome(models.TextChoices):
+        OK = "ok"
+        # 401, 403, 429, 503, or a challenge page that didn't clear.
+        BLOCKED = "blocked"
+        # Loaded, but no article found in it.
+        NO_CONTENT = "no_content"
+        ERROR = "error"
+
+    item = models.ForeignKey(
+        Item, on_delete=models.CASCADE, related_name="fetch_attempts"
+    )
+    method = models.CharField(max_length=16, choices=Method.choices)
+    started_at = models.DateTimeField()
+    finished_at = models.DateTimeField()
+    outcome = models.CharField(max_length=16, choices=Outcome.choices)
+    http_status = models.PositiveSmallIntegerField(null=True, blank=True)
+    message = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-started_at"]
 
 
 class Tag(models.Model):

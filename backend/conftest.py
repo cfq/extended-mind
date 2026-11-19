@@ -65,3 +65,9 @@ def app():
         testing.InMemoryConnector()
     ) as app:
         yield app
+
+
+@pytest.fixture(autouse=True)
+def no_browser(settings):
+    """No browser unless a test sets BROWSER_URL (and fakes browser.visit)."""
+    settings.BROWSER_URL = ""

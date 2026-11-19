@@ -62,5 +62,25 @@ def item_tags(item) -> list:
     return sorted(item.item_tags.all(), key=lambda link: link.tag.name)
 
 
+class ScreenshotsOut(Schema):
+    full: str | None
+    head: str | None
+
+
 class ItemOut(ItemSummaryOut):
     markdown: str
+    screenshots: ScreenshotsOut
+
+    @staticmethod
+    def resolve_screenshots(obj):
+        from apps.items.images import local_url
+        from apps.items.models import ItemSource
+
+        kinds = {
+            ItemSource.Kind.SCREENSHOT_FULL: "full",
+            ItemSource.Kind.SCREENSHOT_HEAD: "head",
+        }
+        urls = {"full": None, "head": None}
+        for source in obj.sources.filter(kind__in=kinds):
+            urls[kinds[source.kind]] = local_url(obj, source.filename)
+        return urls
