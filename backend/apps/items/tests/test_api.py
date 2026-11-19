@@ -3,7 +3,7 @@ import uuid
 import pytest
 
 from apps.items import ids, tagging
-from apps.items.models import Item, ItemTag
+from apps.items.models import Item, ItemSource, ItemTag
 from apps.users.models import ApiToken
 
 ITEMS = "/api/v1/items"
@@ -259,3 +259,64 @@ def test_tags_with_token(client, user, item):
 
     assert response.status_code == 200
     assert client.get("/api/v1/tags", **auth).status_code == 200
+
+
+# Saved images
+
+
+def save_source(item, filename, mime, body, kind=ItemSource.Kind.IMAGE):
+    item.sources_dir.mkdir(parents=True, exist_ok=True)
+    (item.sources_dir / filename).write_bytes(body)
+    return ItemSource.objects.create(
+        item=item,
+        kind=kind,
+        filename=filename,
+        url="https://x.test/a",
+        mime=mime,
+        size=len(body),
+        sha256="0" * 64,
+    )
+
+
+def test_get_image(user_client, item, item_sources_dir):
+    save_source(item, "a-00000000.png", "image/png", b"png")
+
+    response = user_client.get(f"{url_for(item)}/sources/a-00000000.png")
+
+    assert response.status_code == 200
+    assert response["Content-Type"] == "image/png"
+    assert b"".join(response.streaming_content) == b"png"
+    assert "immutable" in response["Cache-Control"]
+    assert "Content-Security-Policy" not in response
+
+
+def test_svg_is_sandboxed(user_client, item, item_sources_dir):
+    save_source(item, "a.svg", "image/svg+xml", b"<svg/>")
+
+    response = user_client.get(f"{url_for(item)}/sources/a.svg")
+
+    assert "sandbox" in response["Content-Security-Policy"]
+
+
+def test_html_source_not_served(user_client, item, item_sources_dir):
+    html = item.sources.get(kind=ItemSource.Kind.HTML)
+
+    response = user_client.get(f"{url_for(item)}/sources/{html.filename}")
+
+    assert response.status_code == 404
+
+
+def test_image_needs_auth_and_own_item(client, other_user, item, item_sources_dir):
+    save_source(item, "a.png", "image/png", b"png")
+    path = f"{url_for(item)}/sources/a.png"
+
+    assert client.get(path).status_code == 401
+    client.force_login(other_user)
+    assert client.get(path).status_code == 404
+
+
+def test_missing_image_file_is_404(user_client, item, item_sources_dir):
+    source = save_source(item, "a.png", "image/png", b"png")
+    source.path.unlink()
+
+    assert user_client.get(f"{url_for(item)}/sources/a.png").status_code == 404
