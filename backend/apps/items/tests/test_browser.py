@@ -87,9 +87,9 @@ def test_html_page_goes_through_browser(page, http, chrome, item_sources_dir):
     fetch.fetch(page)
 
     page.refresh_from_db()
-    assert "rivers" in page.text
+    assert "cities" in page.text
     assert attempts(page) == [("http", "ok", 200), ("browser", "ok", 200)]
-    name = f"rendered-page-text-about-rivers-{page.short_id}"
+    name = f"plain-fetch-text-about-cities-{page.short_id}"
     assert sources(page) == {
         Kind.HTML: f"{name}.html",
         Kind.RENDERED: f"{name}-rendered.html",
@@ -112,14 +112,29 @@ def test_browser_failure_falls_back_to_plain_html(page, http, chrome, item_sourc
     assert set(sources(page)) == {Kind.HTML}
 
 
-def test_rendered_without_content_falls_back(page, http, chrome, item_sources_dir):
-    http()
-    chrome(EMPTY)
+def test_plain_without_content_falls_back_to_rendered(
+    page, http, chrome, item_sources_dir
+):
+    http(EMPTY)
+    chrome()
 
     fetch.fetch(page)
 
-    assert "cities" in page.text
-    assert attempts(page) == [("http", "ok", 200), ("browser", "no_content", 200)]
+    assert "rivers" in page.text
+    assert attempts(page) == [("http", "no_content", 200), ("browser", "ok", 200)]
+
+
+def test_neither_has_content(page, http, chrome, item_sources_dir):
+    http(EMPTY)
+    chrome(EMPTY)
+
+    with pytest.raises(fetch.FetchError):
+        fetch.fetch(page)
+
+    assert attempts(page) == [
+        ("http", "no_content", 200),
+        ("browser", "no_content", 200),
+    ]
 
 
 def test_blocked_plain_fetch_tries_browser(page, http, chrome, item_sources_dir):
@@ -212,7 +227,7 @@ def test_api_screenshots_null_without_them(user_client, item):
     assert response.json()["screenshots"] == {"full": None, "head": None}
 
 
-def test_reextract_prefers_rendered(page, http, chrome, item_sources_dir, app):
+def test_reextract_plain_first_then_rendered(page, http, chrome, item_sources_dir, app):
     http()
     chrome()
     fetch.fetch(page)
@@ -220,7 +235,11 @@ def test_reextract_prefers_rendered(page, http, chrome, item_sources_dir, app):
     page.save()
 
     call_command("reextract")
+    page.refresh_from_db()
+    assert "cities" in page.text
 
+    page.sources.get(kind=Kind.HTML).path.write_text(EMPTY)
+    call_command("reextract")
     page.refresh_from_db()
     assert "rivers" in page.text
 
