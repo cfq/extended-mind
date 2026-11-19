@@ -7,6 +7,15 @@ COPY frontend/ ./
 RUN npm run build
 
 
+# Cookie banner rules injected into pages by the browser visit
+# (apps/items/browser.py). DuckDuckGo autoconsent, MPL-2.0.
+FROM node:24-slim AS autoconsent
+
+WORKDIR /autoconsent
+RUN npm pack @duckduckgo/autoconsent@17.4.0 \
+    && tar xzf duckduckgo-autoconsent-17.4.0.tgz
+
+
 FROM python:3.14-slim
 
 COPY --from=ghcr.io/astral-sh/uv:0.9 /uv /uvx /bin/
@@ -28,6 +37,9 @@ WORKDIR /app/backend
 ARG DEV=false
 COPY backend/pyproject.toml backend/uv.lock ./
 RUN uv sync --locked $([ "$DEV" = "true" ] || echo --no-dev)
+
+COPY --from=autoconsent /autoconsent/package/dist/autoconsent.standalone.js \
+    /autoconsent/package/LICENSE /opt/autoconsent/
 
 COPY . /app
 COPY --from=frontend /frontend/dist /opt/frontend

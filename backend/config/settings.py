@@ -18,6 +18,10 @@ OLLAMA_URL = env("OLLAMA_URL", default="http://ollama:11434")
 OLLAMA_MODEL = env("OLLAMA_MODEL", default="llama3.2:3b")
 # Playwright server (apps/items/browser.py). Empty URL: plain fetch only.
 BROWSER_URL = env("BROWSER_URL", default="ws://browser:3000/")
+# Cookie banner rules, built into the image (docker/Dockerfile).
+AUTOCONSENT_JS = Path(
+    env("AUTOCONSENT_JS", default="/opt/autoconsent/autoconsent.standalone.js")
+)
 
 INSTALLED_APPS = [
     "django.contrib.admin",

@@ -190,7 +190,8 @@ def fetch_browser(item: Item, url: str, attempts: list[Attempt]):
     except browser.BrowserError as e:
         attempt.finish(FetchAttempt.Outcome.ERROR, message=str(e))
         return None
-    attempt.finish(FetchAttempt.Outcome.OK, visit.status)
+    message = "" if visit.consent == "none" else f"Cookie banner {visit.consent}."
+    attempt.finish(FetchAttempt.Outcome.OK, visit.status, message)
     return visit, attempt
 
 

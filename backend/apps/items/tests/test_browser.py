@@ -299,3 +299,25 @@ def test_live_screenshots_sizes(live_browser):
     assert png_size(visit.head) == (1280, 1280)
     assert png_size(visit.full) == (1280, 20000)
     assert "tall" in visit.html
+
+
+def test_live_dismisses_cookie_banner(live_browser):
+    # A OneTrust banner, one of the consent managers autoconsent knows.
+    banner = (
+        "data:text/html,<body><p>Article</p>"
+        "<div id='onetrust-consent-sdk'><div id='onetrust-banner-sdk' "
+        "style='position:fixed;bottom:0;width:100%;height:200px;background:red'>"
+        "<button id='onetrust-accept-btn-handler'>Accept</button>"
+        "<button id='onetrust-reject-all-handler' onclick="
+        "\"document.getElementById('onetrust-consent-sdk').remove()\">Reject"
+        "</button></div></div></body>"
+    )
+
+    visit = browser.visit(banner)
+
+    assert visit.consent == "dismissed"
+    assert "onetrust-banner-sdk" not in visit.html
+
+
+def test_live_no_banner(live_browser):
+    assert browser.visit("data:text/html,<p>Article</p>").consent == "none"
