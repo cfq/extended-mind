@@ -31,3 +31,4 @@
 - Wait: after the challenge check, poll the bundle's messages. Done on `optOutResult` or `autoconsentDone` (then 0.5 s for the banner to animate out); no `popupFound`/`cmpDetected` within 3 s means no banner; at most 10 s. Every browser visit is up to 3 s slower.
 - The browser attempt's message says "Cookie banner dismissed." or "Cookie banner not dismissed." when there was one.
 - Live tests (from the worker): a OneTrust banner page is dismissed before the screenshots; a page without one reports none.
+- Wired, after: `reextract` gives 1,429 words, no consent text, no paywall message. Re-fetched for new screenshots: browser attempt "Cookie banner dismissed."; the `-head` screenshot shows the article header and photo. The "first month free" bar stays, as part of the page.
