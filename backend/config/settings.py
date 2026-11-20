@@ -11,6 +11,12 @@ SECRET_KEY = env("SECRET_KEY")
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+# Production (DEBUG off) is HTTPS only, behind nginx.
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    # A year, this host only: other cfqs.com sites decide for themselves.
+    SECURE_HSTS_SECONDS = 31_536_000
 SIGNUP_ENABLED = env.bool("SIGNUP_ENABLED", default=False)
 ITEM_SOURCES_DIR = Path(env("ITEM_SOURCES_DIR", default="/data/item_sources"))
 # Model tags (apps/items/autotag.py). Empty URL: no model tags.

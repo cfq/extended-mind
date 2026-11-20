@@ -9,7 +9,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
-    allowedHosts: true,
+    // Vite's default host check stays on: only localhost (reached over SSH).
     proxy: {
       "/api": django,
       "/admin": django,

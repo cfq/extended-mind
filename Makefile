@@ -1,9 +1,14 @@
+# Dev (dev-em.cfqs.com): .env.dev, data/dev. Prod (em.cfqs.com): .env.prod,
+# data/prod, built from main. Ollama: shared by both, data/ollama.
 COMPOSE = docker compose -f compose.yaml -f compose.dev.yaml
+PROD = docker compose -f compose.yaml -f compose.prod.yaml
+OLLAMA = docker compose -f compose.ollama.yaml
 RUN = $(COMPOSE) run --rm app
 PROJECT = label=com.docker.compose.project=extended-mind
-DATA_DIR ?= ./data
+DATA_DIR ?= ./data/dev
 
 .PHONY: lock npm build up down logs makemigrations migrate createsuperuser shell ping test test-backend test-frontend lint format
+.PHONY: install ollama vite prod-build prod-up prod-down prod-logs prod-createsuperuser
 .PHONY: nuke nuke-ps nuke-network nuke-volumes nuke-images nuke-data
 
 lock:
@@ -13,11 +18,27 @@ lock:
 npm:
 	$(COMPOSE) run --rm --no-deps frontend npm $(ARGS)
 
+# Fresh checkout or after a nuke: dependencies exactly as locked, images,
+# then the stack (migrations come up with it).
+install: ollama
+	$(COMPOSE) run --rm --no-deps frontend npm ci
+	$(COMPOSE) build
+	$(COMPOSE) up -d
+	@echo "Next: make createsuperuser"
+
+# Shared Ollama; pulls the tagging model if missing. Both stacks need it up.
+ollama:
+	$(OLLAMA) up -d
+
 build:
 	$(COMPOSE) build
 
 up:
 	$(COMPOSE) up -d
+
+# Vite dev server on 127.0.0.1:5173; ssh -L 5173:localhost:5173 to use it.
+vite:
+	$(COMPOSE) --profile vite up -d frontend
 
 down:
 	$(COMPOSE) down
@@ -56,7 +77,23 @@ lint:
 format:
 	$(RUN) sh -c "ruff check --fix . && ruff format ."
 
-# Destructive. Scoped to the extended-mind Compose project.
+# Production. Build from main: the image is what runs.
+prod-build:
+	$(PROD) build
+
+prod-up: ollama
+	$(PROD) up -d
+
+prod-down:
+	$(PROD) down
+
+prod-logs:
+	$(PROD) logs -f
+
+prod-createsuperuser:
+	$(PROD) run --rm app python manage.py createsuperuser
+
+# Destructive. Scoped to the extended-mind (dev) Compose project.
 nuke-ps:
 	docker ps -aq --filter $(PROJECT) | xargs -r docker rm -f
 
