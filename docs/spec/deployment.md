@@ -1,42 +1,41 @@
 # Deployment
 
-Draft.
+## Rules
+- No container port is public. Everything is published on `127.0.0.1` only.
+- The only way in is nginx on the host (TLS, Let's Encrypt), proxying to those localhost ports.
+- Dev is behind basic auth at nginx.
+- Secrets never in the repo or the image. Each environment has its own env file and its own secrets.
 
 ## Docker
-- Everything runs in containers via Docker Compose; the host only needs Docker.
-- One image, `extended-mind`, for app and worker (Python + extraction tools + built SPA).
+- Everything runs in containers via Docker Compose; the host needs Docker and nginx.
+- App image for app, worker and tagger (Python, extraction tools, built SPA): `extended-mind` (dev), `extended-mind-prod` (prod).
+- Browser image `extended-mind-browser` (Playwright server).
 - Third-party services use official images.
 
-## Compose project
-- Name: `extended-mind`.
-- Services:
-  - `proxy`: reverse proxy, TLS (choice TBD).
-  - `app`: Django + Ninja, serves the SPA.
-  - `worker`: Procrastinate, same image as `app`.
-  - `db`: Postgres.
-  - `prometheus`, `grafana`, `loki`, `alloy`, `node-exporter`.
+## Compose projects
+- `extended-mind` (dev): `compose.yaml` + `compose.dev.yaml`. Source mounted, runserver with reload, `DEBUG=True`. Env `.env.dev`, data `data/dev/`.
+- `extended-mind-prod`: `compose.yaml` + `compose.prod.yaml`. Built image, no source mounted, gunicorn, `DEBUG=False`. Env `.env.prod`, data `data/prod/`. Built and run from `main`.
+- `extended-mind-ollama`: `compose.ollama.yaml`. Ollama and the model pull, shared by both. Data `data/ollama/`.
+- Services per app project: `app`, `worker`, `tagger`, `browser`, `migrate` (one-off), `db`. Dev also `frontend` (Vite, profile `vite`).
 
 ## Networking
-- `web`: `proxy`, `app`, `grafana`.
-- `backend`: `app`, `worker`, `db`. Internal, no outside access.
-- `observability`: `prometheus`, `grafana`, `loki`, `alloy`, `node-exporter`, plus `app` and `worker` to be scraped.
-- `egress`: `worker`. Outbound internet only, nothing inbound.
-- Outbound internet: `worker` (fetching, via `egress`), `app` (SES, via `web`).
+- `web`: `app`.
+- `backend`: `app`, `worker`, `tagger`, `migrate`, `db`. Internal.
+- `egress`: `worker`. Outbound internet.
+- `browser`: `worker`, `browser`. Internal.
+- `browser-egress`: `browser` only. Outbound internet.
+- `ollama` (external, from the Ollama project): `ollama`, both projects' `tagger`. Internal. Ollama also has its own egress, to pull models.
 
 ## Exposed
-- Only `proxy`, ports 80/443.
-- Proposed domains:
-  - `em.cfqs.com`: app.
-  - `dashboard.em.cfqs.com`: Grafana, behind login.
-- Everything else reachable only inside Compose networks.
+- nginx, ports 80 (redirects) and 443.
+- `em.cfqs.com` → prod app, `127.0.0.1:8001`.
+- `dev-em.cfqs.com` → dev app, `127.0.0.1:8000`, basic auth.
+- Vite: `127.0.0.1:5173`, reached over SSH (`ssh -L 5173:localhost:5173`).
+- nginx config lives outside the repo.
 
 ## Config
-- Environment variables only; one set per environment.
-- Secrets never in the repo or the image.
-- Base `compose.yaml` shared; per-environment override files.
+- Environment variables only, from `.env.dev` / `.env.prod` (template `.env.example`).
+- With `DEBUG` off: secure cookies, HSTS.
 
-## Environments
-- Dev
-  - Console email, no TLS, ports opened locally as needed.
-- Prod
-  - SES email, TLS, only the proxy exposed.
+## Later
+- Email (SES), monitoring (Prometheus, Grafana, Loki, Alloy).

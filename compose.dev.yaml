@@ -1,5 +1,9 @@
+# Dev: source mounted, runserver with reload, env from .env.dev.
+# Ports on 127.0.0.1 only; dev-em.cfqs.com reaches the app through nginx.
+
 # Containers run as root; keep root-owned caches out of the bind mount.
 x-dev: &dev
+  env_file: .env.dev
   volumes:
     - .:/app
   environment:
@@ -14,7 +18,7 @@ services:
       args:
         DEV: "true"
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
 
   worker:
     <<: *dev
@@ -25,9 +29,15 @@ services:
   migrate:
     <<: *dev
 
+  db:
+    env_file: .env.dev
+
   # Vite dev server; proxies /api, /admin, /static to app.
   # Runs as the host user so node_modules and lock files aren't root-owned.
+  # Not started by make up (profile); make vite. Reach it over SSH:
+  # ssh -L 5173:localhost:5173.
   frontend:
+    profiles: [vite]
     image: node:24-slim
     user: "${UID:-1000}:${GID:-1000}"
     working_dir: /frontend
@@ -35,6 +45,6 @@ services:
     volumes:
       - ./frontend:/frontend
     ports:
-      - "5173:5173"
+      - "127.0.0.1:5173:5173"
     depends_on: [app]
     networks: [web]

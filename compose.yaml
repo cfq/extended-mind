@@ -1,11 +1,14 @@
 name: extended-mind
 
+# Shared by dev and prod. Each overlay sets the env file, and prod its own
+# image, data paths and ports (compose.dev.yaml, compose.prod.yaml).
+# Ollama runs separately, shared by both (compose.ollama.yaml).
+
 x-app: &app
   image: extended-mind
-  env_file: .env
   restart: unless-stopped
   volumes:
-    - ${DATA_DIR:-./data}/item_sources:/data/item_sources
+    - ./data/dev/item_sources:/data/item_sources
   depends_on:
     migrate:
       condition: service_completed_successfully
@@ -30,12 +33,7 @@ services:
     <<: *app
     pull_policy: never
     command: ["python", "manage.py", "procrastinate", "worker", "--queues", "tags"]
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-      ollama-pull:
-        condition: service_completed_successfully
-    networks: [backend]
+    networks: [backend, ollama]
 
   # Headless Chromium for fetching pages and screenshots; the worker
   # connects over a websocket. Its own networks: it can reach the web and
@@ -50,39 +48,10 @@ services:
     shm_size: 1gb
     networks: [browser, browser-egress]
 
-  # Local LLM server. Idle until asked; loads the model into memory on a
-  # request and unloads it after 5 minutes without one.
-  ollama:
-    image: ollama/ollama:0.40.16
-    restart: unless-stopped
-    volumes:
-      - ${DATA_DIR:-./data}/ollama:/root/.ollama
-    # Every check is two logged requests: often while starting, so the
-    # tagger waits briefly, then rarely.
-    healthcheck:
-      test: ["CMD", "ollama", "list"]
-      start_period: 60s
-      start_interval: 5s
-      interval: 5m
-      retries: 10
-    networks: [backend, egress]
-
-  # One-off: downloads the tagging model if missing, then exits.
-  ollama-pull:
-    image: ollama/ollama:0.40.16
-    environment:
-      OLLAMA_HOST: http://ollama:11434
-    command: ["pull", "llama3.2:3b"]
-    depends_on:
-      ollama:
-        condition: service_healthy
-    networks: [backend, egress]
-
   # One-off: applies migrations, then exits.
   migrate:
     image: extended-mind
     pull_policy: never
-    env_file: .env
     command: ["python", "manage.py", "migrate", "--noinput"]
     depends_on:
       db:
@@ -91,10 +60,9 @@ services:
 
   db:
     image: postgres:18
-    env_file: .env
     restart: unless-stopped
     volumes:
-      - ${DATA_DIR:-./data}/postgres:/var/lib/postgresql
+      - ./data/dev/postgres:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
@@ -109,3 +77,6 @@ networks:
   browser:
     internal: true
   browser-egress: {}
+  # Created by compose.ollama.yaml (make ollama).
+  ollama:
+    external: true

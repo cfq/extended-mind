@@ -37,7 +37,7 @@ Rules change in the files first (CLAUDE.md, SPEC, ROE). Re-read them.
 - Claude runs what `.claude/settings.json` allows: tests, lint, format, the dev stack, logs, local curl.
 - Everything runs in the Compose containers. Nothing is installed on the host.
 - Ask first: dependency changes (`make lock`, `make npm`) and anything not on the allowlist.
-- Never: `make nuke*`, reading `.env` or keys, creating credentials.
+- Never: `make nuke*`, reading `.env.*` or keys, creating credentials.
 - Done means: tests and lint pass, the build works, and the API is checked against the running app. cfq checks the UI.
 - `git` and `gh` are allowed for branches, commits, pushes and PRs.
 - Never use `git`/`gh` to run anything else (hooks, aliases, `gh api` workarounds, etc.).

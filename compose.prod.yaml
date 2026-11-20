@@ -1,0 +1,38 @@
+# Production (em.cfqs.com): a built image, no source mounted, gunicorn,
+# env from .env.prod, data in data/prod. Its own project, so dev work and
+# branch switches never touch it. Build and run from main (make prod-*).
+# Port on 127.0.0.1 only; nginx proxies to it.
+name: extended-mind-prod
+
+x-prod: &prod
+  image: extended-mind-prod
+  env_file: .env.prod
+  volumes:
+    - ./data/prod/item_sources:/data/item_sources
+
+services:
+  app:
+    <<: *prod
+    command:
+      - gunicorn
+      - config.wsgi
+      - --bind=0.0.0.0:8000
+      - --workers=3
+      - --access-logfile=-
+    ports:
+      - "127.0.0.1:8001:8000"
+
+  worker:
+    <<: *prod
+
+  tagger:
+    <<: *prod
+
+  migrate:
+    image: extended-mind-prod
+    env_file: .env.prod
+
+  db:
+    env_file: .env.prod
+    volumes:
+      - ./data/prod/postgres:/var/lib/postgresql
