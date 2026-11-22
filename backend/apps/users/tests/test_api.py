@@ -36,7 +36,9 @@ def test_signup_disabled(client, db, settings):
     settings.SIGNUP_ENABLED = False
 
     response = post(
-        client, SIGNUP, {"email": "a@example.com", "username": "a", "password": PASSWORD}
+        client,
+        SIGNUP,
+        {"email": "a@example.com", "username": "a", "password": PASSWORD},
     )
 
     assert response.status_code == 403
