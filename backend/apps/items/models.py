@@ -30,6 +30,8 @@ class Item(models.Model):
     author = models.TextField(blank=True)
     site_name = models.TextField(blank=True)
     published_at = models.DateField(null=True, blank=True)
+    # og:, twitter: and article: meta tags as the page declares them.
+    meta = models.JSONField(default=dict, blank=True)
     text = models.TextField(blank=True)
     markdown = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -59,12 +61,14 @@ class ItemSource(models.Model):
         SCREENSHOT_HEAD = "screenshot_head"
         # The page printed to PDF, through its print stylesheet.
         PDF = "pdf"
+        # The page's sharing image (og:image, twitter:image).
+        OG_IMAGE = "og_image"
 
     item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name="sources")
     kind = models.CharField(max_length=16, choices=Kind.choices)
     filename = models.CharField(max_length=255)
     # Pages and screenshots: final URL after redirects. Images: the URL as
-    # written in the article's markdown.
+    # written in the article's markdown. Sharing image: its absolute URL.
     url = models.URLField(max_length=2048)
     mime = models.CharField(max_length=255)
     size = models.PositiveBigIntegerField()

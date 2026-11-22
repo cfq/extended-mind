@@ -86,6 +86,7 @@ SERVED_KINDS = [
     ItemSource.Kind.SCREENSHOT_FULL,
     ItemSource.Kind.SCREENSHOT_HEAD,
     ItemSource.Kind.PDF,
+    ItemSource.Kind.OG_IMAGE,
 ]
 
 
@@ -96,9 +97,12 @@ def get_item_source(request, item_id: str, filename: str):
     item = get_item(request, item_id)
     # Images, screenshots and PDFs only: a saved HTML page served from here
     # could run scripts.
-    source = get_object_or_404(
-        ItemSource, item=item, kind__in=SERVED_KINDS, filename=filename
-    )
+    # first(): the sharing image can be the same file as an article image.
+    source = ItemSource.objects.filter(
+        item=item, kind__in=SERVED_KINDS, filename=filename
+    ).first()
+    if source is None:
+        raise Http404
     try:
         file = source.path.open("rb")
     except OSError as e:

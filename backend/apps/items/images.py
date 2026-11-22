@@ -1,5 +1,6 @@
 """Article images: kept through extraction, downloaded, and the
-article's markdown pointed at the local copies."""
+article's markdown pointed at the local copies. Also the page's sharing
+image."""
 
 import hashlib
 import logging
@@ -12,7 +13,7 @@ import trafilatura
 from django.utils.text import slugify
 from lxml import html as lxml_html
 
-from apps.items import cleanup, ids
+from apps.items import cleanup, ids, meta
 from apps.items.models import Item, ItemSource
 
 log = logging.getLogger(__name__)
@@ -159,7 +160,7 @@ def local_url(item: Item, filename: str) -> str:
     return f"/api/v1/items/{ids.encode(item.id)}/sources/{filename}"
 
 
-def save_image(item: Item, url: str) -> ItemSource:
+def save_image(item: Item, url: str, kind: str = ItemSource.Kind.IMAGE) -> ItemSource:
     mime, body = download(url, referer=item.url)
     sha256 = hashlib.sha256(body).hexdigest()
     filename = image_filename(url, mime, sha256)
@@ -168,7 +169,7 @@ def save_image(item: Item, url: str) -> ItemSource:
     # url is the image's address in the markdown, the key for the swap.
     return ItemSource.objects.create(
         item=item,
-        kind=ItemSource.Kind.IMAGE,
+        kind=kind,
         filename=filename,
         url=url,
         mime=mime,
@@ -200,4 +201,28 @@ def save_images(item: Item) -> tuple[int, int]:
     if markdown != item.markdown:
         item.markdown = markdown
         item.save(update_fields=["markdown"])
-    return new, failed
+    og_new, og_failed = save_og_image(item)
+    return new + og_new, failed + og_failed
+
+
+def save_og_image(item: Item) -> tuple[int, int]:
+    """Downloads the page's sharing image, unless the same URL is already
+    saved. A new URL replaces the old file; a failed download keeps it.
+    Returns (saved, failed)."""
+    url = meta.image_url(item.meta, item.url)
+    if not url:
+        return 0, 0
+    old = item.sources.filter(kind=ItemSource.Kind.OG_IMAGE).first()
+    if old and old.url == url and old.path.exists():
+        return 0, 0
+    try:
+        save_image(item, url, ItemSource.Kind.OG_IMAGE)
+    except Exception as e:
+        log.warning("Sharing image %s for item %s: %s", url, item.pk, e)
+        return 0, 1
+    if old:
+        # Another source may share the file: same content, same name.
+        if not item.sources.filter(filename=old.filename).exclude(pk=old.pk).exists():
+            old.path.unlink(missing_ok=True)
+        old.delete()
+    return 1, 0
