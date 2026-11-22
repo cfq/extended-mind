@@ -1,14 +1,9 @@
-name: extended-mind
-
-# Shared by dev and prod. Each overlay sets the env file, and prod its own
-# image, data paths and ports (compose.dev.yaml, compose.prod.yaml).
-# Ollama runs separately, shared by both (compose.ollama.yaml).
+# Shared by dev and prod. Each overlay sets the project name, images, env
+# file, data paths and ports (dev.yaml, prod.yaml).
+# Ollama runs separately, shared by both (ollama.yaml).
 
 x-app: &app
-  image: extended-mind
   restart: unless-stopped
-  volumes:
-    - ./data/dev/item_sources:/data/item_sources
   depends_on:
     migrate:
       condition: service_completed_successfully
@@ -42,7 +37,6 @@ services:
     build:
       context: docker
       dockerfile: browser.Dockerfile
-    image: extended-mind-browser
     init: true
     restart: unless-stopped
     shm_size: 1gb
@@ -50,7 +44,6 @@ services:
 
   # One-off: applies migrations, then exits.
   migrate:
-    image: extended-mind
     pull_policy: never
     command: ["python", "manage.py", "migrate", "--noinput"]
     depends_on:
@@ -61,8 +54,6 @@ services:
   db:
     image: postgres:18
     restart: unless-stopped
-    volumes:
-      - ./data/dev/postgres:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
@@ -77,6 +68,6 @@ networks:
   browser:
     internal: true
   browser-egress: {}
-  # Created by compose.ollama.yaml (make ollama).
+  # Created by ollama.yaml (make ollama-up).
   ollama:
     external: true

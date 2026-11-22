@@ -1,14 +1,14 @@
 # Dev (dev-em.cfqs.com): .env.dev, data/dev. Prod (em.cfqs.com): .env.prod,
 # data/prod, built from main. Ollama: shared by both, data/ollama.
-COMPOSE = docker compose -f compose.yaml -f compose.dev.yaml
-PROD = docker compose -f compose.yaml -f compose.prod.yaml
-OLLAMA = docker compose -f compose.ollama.yaml
-RUN = $(COMPOSE) run --rm app
-PROJECT = label=com.docker.compose.project=extended-mind
+DEV = docker compose --project-directory . -f docker/compose.yaml -f docker/dev.yaml
+PROD = docker compose --project-directory . -f docker/compose.yaml -f docker/prod.yaml
+OLLAMA = docker compose --project-directory . -f docker/ollama.yaml
+RUN = $(DEV) run --rm app
+PROJECT = label=com.docker.compose.project=extended-mind-dev
 DATA_DIR ?= ./data/dev
 
-.PHONY: lock npm build up down logs makemigrations migrate createsuperuser shell ping test test-backend test-frontend lint format
-.PHONY: install ollama vite prod-build prod-up prod-down prod-logs prod-createsuperuser
+.PHONY: lock npm dev-build dev-up dev-down dev-logs makemigrations migrate dev-createsuperuser shell ping test test-backend test-frontend lint format
+.PHONY: install ollama-up ollama-down vite prod-build prod-up prod-down prod-logs prod-createsuperuser
 .PHONY: nuke nuke-ps nuke-network nuke-volumes nuke-images nuke-data
 
 lock:
@@ -16,44 +16,48 @@ lock:
 
 # e.g. make npm ARGS="install some-lib"
 npm:
-	$(COMPOSE) run --rm --no-deps frontend npm $(ARGS)
+	$(DEV) run --rm --no-deps frontend npm $(ARGS)
 
 # Fresh checkout or after a nuke: dependencies exactly as locked, images,
 # then the stack (migrations come up with it).
-install: ollama
-	$(COMPOSE) run --rm --no-deps frontend npm ci
-	$(COMPOSE) build
-	$(COMPOSE) up -d
-	@echo "Next: make createsuperuser"
+install: ollama-up
+	$(DEV) run --rm --no-deps frontend npm ci
+	$(DEV) build
+	$(DEV) up -d
+	@echo "Next: make dev-createsuperuser"
 
 # Shared Ollama; pulls the tagging model if missing. Both stacks need it up.
-ollama:
+ollama-up:
 	$(OLLAMA) up -d
 
-build:
-	$(COMPOSE) build
+# Stop the dev and prod stacks first: their taggers hold the ollama network.
+ollama-down:
+	$(OLLAMA) down
 
-up:
-	$(COMPOSE) up -d
+dev-build:
+	$(DEV) build
+
+dev-up: ollama-up
+	$(DEV) up -d
 
 # Vite dev server on 127.0.0.1:5173; ssh -L 5173:localhost:5173 to use it.
 vite:
-	$(COMPOSE) --profile vite up -d frontend
+	$(DEV) --profile vite up -d frontend
 
-down:
-	$(COMPOSE) down
+dev-down:
+	$(DEV) down
 
-logs:
-	$(COMPOSE) logs -f
+dev-logs:
+	$(DEV) logs -f
 
 # No deps: doesn't need the database.
 makemigrations:
-	$(COMPOSE) run --rm --no-deps app python manage.py makemigrations
+	$(DEV) run --rm --no-deps app python manage.py makemigrations
 
 migrate:
 	$(RUN) python manage.py migrate
 
-createsuperuser:
+dev-createsuperuser:
 	$(RUN) python manage.py createsuperuser
 
 shell:
@@ -69,7 +73,7 @@ test-backend:
 
 # Node's built-in runner; no test dependencies.
 test-frontend:
-	$(COMPOSE) run --rm --no-deps frontend node --test
+	$(DEV) run --rm --no-deps frontend node --test
 
 lint:
 	$(RUN) sh -c "ruff check . && ruff format --check ."
@@ -81,7 +85,7 @@ format:
 prod-build:
 	$(PROD) build
 
-prod-up: ollama
+prod-up: ollama-up
 	$(PROD) up -d
 
 prod-down:
@@ -93,7 +97,7 @@ prod-logs:
 prod-createsuperuser:
 	$(PROD) run --rm app python manage.py createsuperuser
 
-# Destructive. Scoped to the extended-mind (dev) Compose project.
+# Destructive. Scoped to the extended-mind-dev Compose project.
 nuke-ps:
 	docker ps -aq --filter $(PROJECT) | xargs -r docker rm -f
 
@@ -104,7 +108,7 @@ nuke-volumes: nuke-ps
 	docker volume ls -q --filter $(PROJECT) | xargs -r docker volume rm
 
 nuke-images: nuke-ps
-	docker images -q extended-mind | xargs -r docker rmi -f
+	docker images -q --filter reference='extended-mind-dev*' | xargs -r docker rmi -f
 
 # Postgres files are owned by the container user, so delete from a container.
 nuke-data: nuke-ps
