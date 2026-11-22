@@ -25,6 +25,7 @@ export type Item = ItemSummary & {
   markdown: string;
   // URLs of the saved PNGs, null when there's none.
   screenshots: { full: string | null; head: string | null };
+  pdf: string | null;
 };
 
 export const itemsKey = ["items"];

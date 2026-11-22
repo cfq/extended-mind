@@ -115,6 +115,11 @@ export function ItemPage() {
                 ))}
             </span>
           )}
+          {item.pdf && (
+            <a href={item.pdf} target="_blank" rel="noreferrer">
+              PDF
+            </a>
+          )}
         </p>
       </header>
 

@@ -70,6 +70,7 @@ class ScreenshotsOut(Schema):
 class ItemOut(ItemSummaryOut):
     markdown: str
     screenshots: ScreenshotsOut
+    pdf: str | None
 
     @staticmethod
     def resolve_screenshots(obj):
@@ -84,3 +85,11 @@ class ItemOut(ItemSummaryOut):
         for source in obj.sources.filter(kind__in=kinds):
             urls[kinds[source.kind]] = local_url(obj, source.filename)
         return urls
+
+    @staticmethod
+    def resolve_pdf(obj):
+        from apps.items.images import local_url
+        from apps.items.models import ItemSource
+
+        source = obj.sources.filter(kind=ItemSource.Kind.PDF).first()
+        return local_url(obj, source.filename) if source else None

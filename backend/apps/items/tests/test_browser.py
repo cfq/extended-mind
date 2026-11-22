@@ -22,6 +22,7 @@ PLAIN = article("Plain fetch text about cities")
 RENDERED = article("Rendered page text about rivers")
 EMPTY = "<html><body></body></html>"
 PNG_FULL, PNG_HEAD = b"\x89PNG full", b"\x89PNG head"
+PDF = b"%PDF-1.4 page"
 
 
 @pytest.fixture
@@ -54,13 +55,15 @@ def chrome(settings, monkeypatch):
     settings.BROWSER_URL = "ws://browser.test/"
     visits = []
 
-    def use(html: str = RENDERED, error: Exception | None = None):
+    def use(
+        html: str = RENDERED, error: Exception | None = None, pdf: bytes | None = PDF
+    ):
         def visit(url):
             visits.append(url)
             if error:
                 raise error
             return browser.Visit(
-                url=url, status=200, html=html, head=PNG_HEAD, full=PNG_FULL
+                url=url, status=200, html=html, head=PNG_HEAD, full=PNG_FULL, pdf=pdf
             )
 
         monkeypatch.setattr(browser, "visit", visit)
@@ -95,8 +98,10 @@ def test_html_page_goes_through_browser(page, http, chrome, item_sources_dir):
         Kind.RENDERED: f"{name}-rendered.html",
         Kind.SCREENSHOT_FULL: f"{name}-full.png",
         Kind.SCREENSHOT_HEAD: f"{name}-head.png",
+        Kind.PDF: f"{name}.pdf",
     }
     assert (page.sources_dir / f"{name}-full.png").read_bytes() == PNG_FULL
+    assert (page.sources_dir / f"{name}.pdf").read_bytes() == PDF
     assert (page.sources_dir / f"{name}.html").read_text() == PLAIN
 
 
@@ -195,8 +200,8 @@ def test_retry_replaces_files_and_adds_attempts(page, http, chrome, item_sources
     fetch.fetch(page)
     fetch.fetch(page)
 
-    assert page.sources.count() == 4
-    assert len(list(page.sources_dir.iterdir())) == 4
+    assert page.sources.count() == 5
+    assert len(list(page.sources_dir.iterdir())) == 5
     assert len(attempts(page)) == 4
 
 
@@ -225,6 +230,33 @@ def test_api_screenshots_null_without_them(user_client, item):
     response = user_client.get(f"/api/v1/items/{ids.encode(item.id)}")
 
     assert response.json()["screenshots"] == {"full": None, "head": None}
+    assert response.json()["pdf"] is None
+
+
+def test_api_serves_pdf(user_client, page, http, chrome, item_sources_dir):
+    http()
+    chrome()
+    fetch.fetch(page)
+    base = f"/api/v1/items/{ids.encode(page.id)}"
+
+    pdf = user_client.get(base).json()["pdf"]
+
+    assert pdf == f"{base}/sources/{sources(page)[Kind.PDF]}"
+    response = user_client.get(pdf)
+    assert response["Content-Type"] == "application/pdf"
+    assert b"".join(response.streaming_content) == PDF
+
+
+def test_no_pdf_when_printing_failed(page, http, chrome, item_sources_dir):
+    http()
+    chrome(pdf=None)
+
+    fetch.fetch(page)
+
+    page.refresh_from_db()
+    assert page.status == Item.Status.DONE
+    assert Kind.PDF not in sources(page)
+    assert Kind.SCREENSHOT_FULL in sources(page)
 
 
 def test_reextract_plain_first_then_rendered(page, http, chrome, item_sources_dir, app):
@@ -296,8 +328,9 @@ def test_live_screenshots_sizes(live_browser):
 
     visit = browser.visit(tall)
 
-    assert png_size(visit.head) == (1280, 1280)
-    assert png_size(visit.full) == (1280, 20000)
+    assert png_size(visit.head) == (2560, 2560)
+    assert png_size(visit.full) == (2560, 40000)
+    assert visit.pdf.startswith(b"%PDF")
     assert "tall" in visit.html
 
 
