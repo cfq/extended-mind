@@ -71,6 +71,9 @@ class ItemOut(ItemSummaryOut):
     markdown: str
     screenshots: ScreenshotsOut
     pdf: str | None
+    # og:, twitter: and article: meta tags as the page declares them.
+    meta: dict
+    og_image: str | None
 
     @staticmethod
     def resolve_screenshots(obj):
@@ -92,4 +95,12 @@ class ItemOut(ItemSummaryOut):
         from apps.items.models import ItemSource
 
         source = obj.sources.filter(kind=ItemSource.Kind.PDF).first()
+        return local_url(obj, source.filename) if source else None
+
+    @staticmethod
+    def resolve_og_image(obj):
+        from apps.items.images import local_url
+        from apps.items.models import ItemSource
+
+        source = obj.sources.filter(kind=ItemSource.Kind.OG_IMAGE).first()
         return local_url(obj, source.filename) if source else None

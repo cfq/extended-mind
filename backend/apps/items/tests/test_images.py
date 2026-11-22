@@ -1,4 +1,5 @@
 import functools
+from urllib.parse import urljoin
 
 import httpx2
 import pytest
@@ -220,3 +221,104 @@ def test_missing_file_is_downloaded_again(item, item_sources_dir, transport):
     assert images.save_images(item) == (1, 0)
     assert item.sources.filter(kind=ItemSource.Kind.IMAGE).count() == 1
     assert len(seen) == 2
+
+
+# Sharing image
+
+
+def test_og_image_saved(item, item_sources_dir, transport):
+    seen = transport(png)
+    item.markdown = ""
+    item.meta = {"og:image": "/share.png"}
+    item.save()
+
+    assert images.save_images(item) == (1, 0)
+
+    source = item.sources.get(kind=ItemSource.Kind.OG_IMAGE)
+    assert source.url == urljoin(item.url, "/share.png")
+    assert source.path.read_bytes() == PNG
+    assert seen[0].headers["referer"] == item.url
+
+
+def test_og_image_not_downloaded_twice(item, item_sources_dir, transport):
+    seen = transport(png)
+    item.markdown = ""
+    item.meta = {"og:image": "https://x.test/share.png"}
+    item.save()
+    images.save_images(item)
+
+    assert images.save_images(item) == (0, 0)
+    assert len(seen) == 1
+
+
+def test_og_image_new_url_replaces_old(item, item_sources_dir, transport):
+    def handler(request):
+        content = request.url.path.encode()
+        return httpx2.Response(
+            200, headers={"content-type": "image/png"}, content=content
+        )
+
+    transport(handler)
+    item.markdown = ""
+    item.meta = {"og:image": "https://x.test/one.png"}
+    item.save()
+    images.save_images(item)
+    old = item.sources.get(kind=ItemSource.Kind.OG_IMAGE)
+
+    item.meta = {"og:image": "https://x.test/two.png"}
+    assert images.save_images(item) == (1, 0)
+
+    new = item.sources.get(kind=ItemSource.Kind.OG_IMAGE)
+    assert new.url == "https://x.test/two.png"
+    assert not old.path.exists()
+
+
+def test_og_image_failure_keeps_old(item, item_sources_dir, transport):
+    transport(png)
+    item.markdown = ""
+    item.meta = {"og:image": "https://x.test/one.png"}
+    item.save()
+    images.save_images(item)
+
+    transport(lambda request: httpx2.Response(404))
+    item.meta = {"og:image": "https://x.test/two.png"}
+
+    assert images.save_images(item) == (0, 1)
+    assert (
+        item.sources.get(kind=ItemSource.Kind.OG_IMAGE).url == "https://x.test/one.png"
+    )
+
+
+def test_og_image_same_file_as_article_image(
+    item, item_sources_dir, transport, user_client
+):
+    transport(png)
+    item.markdown = "![a](https://x.test/a.png)"
+    item.meta = {"og:image": "https://x.test/a.png"}
+    item.save()
+
+    assert images.save_images(item) == (2, 0)
+
+    og = item.sources.get(kind=ItemSource.Kind.OG_IMAGE)
+    article = item.sources.get(kind=ItemSource.Kind.IMAGE)
+    assert og.filename == article.filename
+    response = user_client.get(images.local_url(item, og.filename))
+    assert response.status_code == 200
+
+
+def test_api_meta_and_og_image(item, item_sources_dir, transport, user_client):
+    transport(png)
+    item.markdown = ""
+    item.meta = {"og:image": "https://x.test/share.png", "og:type": "article"}
+    item.save()
+    url = f"/api/v1/items/{ids.encode(item.id)}"
+    assert user_client.get(url).json()["og_image"] is None
+
+    images.save_images(item)
+
+    data = user_client.get(url).json()
+    assert data["meta"] == item.meta
+    source = item.sources.get(kind=ItemSource.Kind.OG_IMAGE)
+    assert data["og_image"] == images.local_url(item, source.filename)
+    response = user_client.get(data["og_image"])
+    assert response["Content-Type"] == "image/png"
