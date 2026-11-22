@@ -272,6 +272,10 @@ def fetch_into(item: Item, attempts: list[Attempt]):
             "image/png",
             visit.head,
         )
+        if visit.pdf:
+            save_source(
+                item, kinds.PDF, f"{name}.pdf", visit.url, "application/pdf", visit.pdf
+            )
     finish(item, tags)
 
 

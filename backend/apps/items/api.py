@@ -85,15 +85,16 @@ SERVED_KINDS = [
     ItemSource.Kind.IMAGE,
     ItemSource.Kind.SCREENSHOT_FULL,
     ItemSource.Kind.SCREENSHOT_HEAD,
+    ItemSource.Kind.PDF,
 ]
 
 
-# Saved article images and screenshots. Their URLs are stored in item markdown
+# Saved article images, screenshots and PDFs. Their URLs are stored in item markdown
 # (images.local_url): keep this path stable.
 @router.get("/{item_id}/sources/{filename}")
 def get_item_source(request, item_id: str, filename: str):
     item = get_item(request, item_id)
-    # Images and screenshots only: a saved HTML page served from here
+    # Images, screenshots and PDFs only: a saved HTML page served from here
     # could run scripts.
     source = get_object_or_404(
         ItemSource, item=item, kind__in=SERVED_KINDS, filename=filename

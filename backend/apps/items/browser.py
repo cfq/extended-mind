@@ -6,7 +6,10 @@ from dataclasses import dataclass
 
 from django.conf import settings
 
+# CSS pixels; screenshots are taken at SCALE times that, sharp on
+# high-density screens.
 VIEWPORT = {"width": 1280, "height": 1280}
+SCALE = 2
 MAX_HEIGHT = 20_000
 CONNECT_TIMEOUT = 30_000
 LOAD_TIMEOUT = 45_000
@@ -78,6 +81,8 @@ class Visit:
     html: str
     head: bytes
     full: bytes
+    # The page as printed (its print stylesheet); None if printing failed.
+    pdf: bytes | None = None
     # Cookie banner: "none", "dismissed", or "not dismissed".
     consent: str = "none"
 
@@ -109,6 +114,15 @@ def dismiss_consent(page) -> str:
     return "not dismissed"
 
 
+def print_pdf(page) -> bytes | None:
+    """The page through its print stylesheet, on A4. Best effort: a page
+    that won't print still has its screenshots."""
+    try:
+        return page.pdf(format="A4", print_background=True)
+    except Exception:
+        return None
+
+
 def visit(url: str) -> Visit:
     """Loads the page and returns its rendered HTML and screenshots.
     Raises Blocked for bot walls, BrowserError for anything else."""
@@ -124,7 +138,10 @@ def visit(url: str) -> Visit:
             try:
                 # A fresh context per visit: no cookies carried between saves.
                 context = browser.new_context(
-                    viewport=VIEWPORT, user_agent=USER_AGENT, locale="en-US"
+                    viewport=VIEWPORT,
+                    device_scale_factor=SCALE,
+                    user_agent=USER_AGENT,
+                    locale="en-US",
                 )
                 if settings.AUTOCONSENT_JS.exists():
                     context.add_init_script(path=str(settings.AUTOCONSENT_JS))
@@ -173,12 +190,14 @@ def visit(url: str) -> Visit:
                         "height": MAX_HEIGHT,
                     }
                 full = page.screenshot(type="png", full_page=True, clip=clip)
+                pdf = print_pdf(page)
                 return Visit(
                     url=page.url,
                     status=status,
                     html=page.content(),
                     head=head,
                     full=full,
+                    pdf=pdf,
                     consent=consent,
                 )
             finally:

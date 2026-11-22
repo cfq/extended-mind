@@ -57,6 +57,8 @@ class ItemSource(models.Model):
         IMAGE = "image"
         SCREENSHOT_FULL = "screenshot_full"
         SCREENSHOT_HEAD = "screenshot_head"
+        # The page printed to PDF, through its print stylesheet.
+        PDF = "pdf"
 
     item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name="sources")
     kind = models.CharField(max_length=16, choices=Kind.choices)
