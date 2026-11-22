@@ -8,14 +8,14 @@
 
 ## Docker
 - Everything runs in containers via Docker Compose; the host needs Docker and nginx.
-- App image for app, worker and tagger (Python, extraction tools, built SPA): `extended-mind` (dev), `extended-mind-prod` (prod).
-- Browser image `extended-mind-browser` (Playwright server).
+- App image for app, worker and tagger (Python, extraction tools, built SPA): `extended-mind-dev`, `extended-mind-prod`.
+- Browser image (Playwright server): `extended-mind-dev-browser`, `extended-mind-prod-browser`.
 - Third-party services use official images.
 
 ## Compose projects
-- `extended-mind` (dev): `compose.yaml` + `compose.dev.yaml`. Source mounted, runserver with reload, `DEBUG=True`. Env `.env.dev`, data `data/dev/`.
-- `extended-mind-prod`: `compose.yaml` + `compose.prod.yaml`. Built image, no source mounted, gunicorn, `DEBUG=False`. Env `.env.prod`, data `data/prod/`. Built and run from `main`.
-- `extended-mind-ollama`: `compose.ollama.yaml`. Ollama and the model pull, shared by both. Data `data/ollama/`.
+- `extended-mind-dev`: `docker/compose.yaml` + `docker/dev.yaml`. Source mounted, runserver with reload, `DEBUG=True`. Env `.env.dev`, data `data/dev/`.
+- `extended-mind-prod`: `docker/compose.yaml` + `docker/prod.yaml`. Built image, no source mounted, gunicorn, `DEBUG=False`. Env `.env.prod`, data `data/prod/`. Built and run from `main`.
+- `extended-mind-ollama`: `docker/ollama.yaml`. Ollama and the model pull, shared by both. Data `data/ollama/`.
 - Services per app project: `app`, `worker`, `tagger`, `browser`, `migrate` (one-off), `db`. Dev also `frontend` (Vite, profile `vite`).
 
 ## Networking

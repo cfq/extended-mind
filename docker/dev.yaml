@@ -1,11 +1,15 @@
-# Dev: source mounted, runserver with reload, env from .env.dev.
+# Dev: source mounted, runserver with reload, env from .env.dev, data in
+# data/dev.
+name: extended-mind-dev
 # Ports on 127.0.0.1 only; dev-em.cfqs.com reaches the app through nginx.
 
 # Containers run as root; keep root-owned caches out of the bind mount.
 x-dev: &dev
+  image: extended-mind-dev
   env_file: .env.dev
   volumes:
     - .:/app
+    - ./data/dev/item_sources:/data/item_sources
   environment:
     PYTHONDONTWRITEBYTECODE: "1"
     PYTEST_ADDOPTS: "-p no:cacheprovider"
@@ -29,12 +33,17 @@ services:
   migrate:
     <<: *dev
 
+  browser:
+    image: extended-mind-dev-browser
+
   db:
     env_file: .env.dev
+    volumes:
+      - ./data/dev/postgres:/var/lib/postgresql
 
   # Vite dev server; proxies /api, /admin, /static to app.
   # Runs as the host user so node_modules and lock files aren't root-owned.
-  # Not started by make up (profile); make vite. Reach it over SSH:
+  # Not started by make dev-up (profile); make vite. Reach it over SSH:
   # ssh -L 5173:localhost:5173.
   frontend:
     profiles: [vite]
