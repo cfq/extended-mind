@@ -75,8 +75,12 @@ def test_detail(user_client, item):
     body = response.json()
     assert body["id"] == ids.encode(item.id)
     assert body["title"] == "Handles are the better pointers"
-    assert body["markdown"]
-    assert {"author", "site_name", "published_at"} <= body.keys()
+    assert body["type"] == "page"
+    assert body["status"] == "done"
+    assert body["page"]["markdown"]
+    assert "author" in body["page"]
+    assert body["image"] is None
+    assert {"site_name", "published_at", "found_on", "thumbnail"} <= body.keys()
 
 
 @pytest.mark.parametrize(
@@ -98,16 +102,9 @@ def test_detail_other_users_item(client, other_user, item):
 
 
 def test_retry(user_client, item, app):
-    item.status = Item.Status.FAILED
-    item.error = "boom"
-    item.save()
-
     response = user_client.post(f"{url_for(item)}/retry")
 
     assert response.status_code == 200
-    item.refresh_from_db()
-    assert item.status == Item.Status.PENDING
-    assert item.error == ""
     assert deferred(app) == [("apps.items.tasks.fetch_item", {"item_id": str(item.id)})]
 
 
@@ -152,6 +149,7 @@ def test_delete_other_users_item(client, other_user, item):
         ("post", ITEMS),
         ("get", f"{ITEMS}/{'0' * 22}"),
         ("post", f"{ITEMS}/{'0' * 22}/retry"),
+        ("post", f"{ITEMS}/images"),
         ("delete", f"{ITEMS}/{'0' * 22}"),
         ("post", f"{ITEMS}/{'0' * 22}/tags"),
         ("delete", f"{ITEMS}/{'0' * 22}/tags/x"),

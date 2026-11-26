@@ -9,6 +9,8 @@ dependencies = [
     "django-ninja>=1.6",
     "gunicorn>=23",
     "httpx2>=2.16",
+    # Image uploads: format checks and dimensions.
+    "pillow>=12",
     # Same minor version as the browser container (docker/browser.Dockerfile).
     "playwright>=1.65,<1.66",
     "procrastinate>=3.0",

@@ -43,7 +43,9 @@ export function formatDate(value: string): string {
 
 // Meta line under an article's title; missing parts are left out.
 export function articleMeta(item: MetaSource): string[] {
-  const parts = [item.site_name || domain(item.url)];
+  // Uploads have no URL.
+  const source = item.site_name || domain(item.url);
+  const parts = source ? [source] : [];
   if (item.published_at) parts.push(formatDate(item.published_at));
   const time = readingTime(item.markdown ?? "");
   if (time) parts.push(time);

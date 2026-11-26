@@ -39,11 +39,15 @@ SCHEMA = {
 }
 
 
+def text(item: Item) -> str:
+    return item.detail.search_text() if item.detail else ""
+
+
 def document(item: Item) -> str:
     parts = [
         f"Title: {item.title}" if item.title else "",
         f"Description: {item.description}" if item.description else "",
-        item.text[:DOC_CHARS],
+        text(item)[:DOC_CHARS],
     ]
     return "\n\n".join(p for p in parts if p)
 
@@ -92,7 +96,7 @@ def suggest(item: Item) -> list[str]:
     """Tag names (normalised) for the item, best first."""
     # MAX_TAGS is per item, so running again doesn't pile on more.
     budget = MAX_TAGS - item.item_tags.filter(source=ItemTag.Source.MODEL).count()
-    if budget <= 0 or not settings.OLLAMA_URL or not item.text.strip():
+    if budget <= 0 or not settings.OLLAMA_URL or not text(item).strip():
         return []
     # Already on the item, or removed from it: don't spend a slot on them.
     taken = set(item.item_tags.values_list("tag__name", flat=True))

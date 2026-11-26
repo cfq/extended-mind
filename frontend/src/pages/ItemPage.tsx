@@ -4,8 +4,15 @@ import { useNavigate, useParams } from "react-router";
 
 import { TagInput } from "../components/TagInput";
 import { ApiError, api } from "../lib/api";
-import { type Item, displayTitle, itemsKey, useItem, useTags } from "../lib/items";
-import { articleMeta } from "../lib/meta";
+import {
+  type ImageDetail,
+  type Item,
+  displayTitle,
+  itemsKey,
+  useItem,
+  useTags,
+} from "../lib/items";
+import { articleMeta, domain } from "../lib/meta";
 import { type ItemTag, tagsKey } from "../lib/tags";
 import { NotFound } from "./NotFound";
 
@@ -37,14 +44,6 @@ export function ItemPage() {
   const { data: item, error } = useItem(id);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-
-  const retry = useMutation({
-    mutationFn: () => api<Item>(`/items/${id}/retry`, { method: "POST" }),
-    onSuccess: (updated) => {
-      queryClient.setQueryData([...itemsKey, id], updated);
-      queryClient.invalidateQueries({ queryKey: itemsKey, exact: true });
-    },
-  });
 
   const { data: allTags = [] } = useTags();
 
@@ -84,25 +83,33 @@ export function ItemPage() {
   if (error instanceof ApiError && error.status === 404) return <NotFound />;
   if (error) return <p className="error">{error.message}</p>;
   if (!item) return null;
+  const { page, image } = item;
 
   return (
     <article className="reading">
       <header className="reading-header">
         <h1 className="reading-title">{displayTitle(item)}</h1>
-        {item.author && <p className="reading-author">{item.author}</p>}
+        {page?.author && <p className="reading-author">{page.author}</p>}
         <p className="reading-meta">
-          {articleMeta(item).map((part) => (
+          {articleMeta({ ...item, markdown: page?.markdown }).map((part) => (
             <span key={part}>{part}</span>
           ))}
-          <a href={item.url} target="_blank" rel="noreferrer">
-            Original
-          </a>
-          {(item.screenshots.full || item.screenshots.head) && (
+          {item.url && (
+            <a href={item.url} target="_blank" rel="noreferrer">
+              Original
+            </a>
+          )}
+          {item.found_on && (
+            <a href={item.found_on} target="_blank" rel="noreferrer">
+              Found on {domain(item.found_on)}
+            </a>
+          )}
+          {page && (page.screenshots.full || page.screenshots.head) && (
             <span>
               Screenshots:{" "}
               {[
-                ["full", item.screenshots.full],
-                ["head", item.screenshots.head],
+                ["full", page.screenshots.full],
+                ["head", page.screenshots.head],
               ]
                 .filter(([, url]) => url)
                 .map(([label, url], i) => (
@@ -115,8 +122,8 @@ export function ItemPage() {
                 ))}
             </span>
           )}
-          {item.pdf && (
-            <a href={item.pdf} target="_blank" rel="noreferrer">
+          {page?.pdf && (
+            <a href={page.pdf} target="_blank" rel="noreferrer">
               PDF
             </a>
           )}
@@ -139,27 +146,19 @@ export function ItemPage() {
         {item.status !== "done" && (
           <p className="reading-meta reading-status">
             <span>{item.status === "failed" ? item.error || "Failed" : `${item.status}…`}</span>
-            {item.status === "failed" && (
-              <button
-                type="button"
-                className="quiet"
-                onClick={() => retry.mutate()}
-                disabled={retry.isPending}
-              >
-                Retry
-              </button>
-            )}
           </p>
         )}
 
         {item.description && <p className="reading-standfirst">{item.description}</p>}
 
-        {item.markdown && (
+        {page?.markdown && (
           <div className="reading-body">
             {/* No raw HTML rendering: never add rehype-raw. */}
-            <Markdown components={markdownComponents}>{item.markdown}</Markdown>
+            <Markdown components={markdownComponents}>{page.markdown}</Markdown>
           </div>
         )}
+
+        {image?.original && <ImageView image={image} title={displayTitle(item)} />}
 
         <footer className="reading-meta reading-footer">
           <button
@@ -173,5 +172,39 @@ export function ItemPage() {
         </footer>
       </div>
     </article>
+  );
+}
+
+function fileSize(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+const FORMATS: Record<string, string> = {
+  "image/jpeg": "JPEG",
+  "image/png": "PNG",
+  "image/gif": "GIF",
+  "image/webp": "WebP",
+};
+
+function ImageView({ image, title }: { image: ImageDetail; title: string }) {
+  const details = [
+    image.width && image.height ? `${image.width} × ${image.height}` : "",
+    image.mime ? (FORMATS[image.mime] ?? image.mime) : "",
+    image.size ? fileSize(image.size) : "",
+  ].filter(Boolean);
+  return (
+    <figure className="reading-image">
+      <a href={image.original ?? ""} target="_blank" rel="noreferrer">
+        <img src={image.original ?? ""} alt={title} />
+      </a>
+      {details.length > 0 && (
+        <figcaption className="reading-meta">
+          {details.map((part) => (
+            <span key={part}>{part}</span>
+          ))}
+        </figcaption>
+      )}
+    </figure>
   );
 }

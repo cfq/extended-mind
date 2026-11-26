@@ -142,15 +142,15 @@ def test_image_filename():
 
 def test_save_images_downloads_and_swaps(item, item_sources_dir, transport):
     seen = transport(png)
-    item.markdown = "![a](https://x.test/a.png)\n\n[![a](https://x.test/a.png)](https://x.test/a.png)"
-    item.save()
+    item.page.markdown = "![a](https://x.test/a.png)\n\n[![a](https://x.test/a.png)](https://x.test/a.png)"
+    item.page.save()
 
-    assert images.save_images(item) == (1, 0)
+    assert images.save_images(item) == (1, [])
 
     source = item.sources.get(kind=ItemSource.Kind.IMAGE)
     local = f"/api/v1/items/{ids.encode(item.id)}/sources/{source.filename}"
-    item.refresh_from_db()
-    assert item.markdown == f"![a]({local})\n\n[![a]({local})]({local})"
+    item.page.refresh_from_db()
+    assert item.page.markdown == f"![a]({local})\n\n[![a]({local})]({local})"
     assert source.path.read_bytes() == PNG
     assert (source.url, source.mime, source.size) == (
         "https://x.test/a.png",
@@ -172,53 +172,54 @@ def test_failed_images_keep_original_url(item, item_sources_dir, transport):
         return png(request)
 
     transport(handler)
-    item.markdown = "![](https://x.test/missing.png) ![](https://x.test/page.png) ![](https://x.test/ok.png)"
-    item.save()
+    item.page.markdown = "![](https://x.test/missing.png) ![](https://x.test/page.png) ![](https://x.test/ok.png)"
+    item.page.save()
 
-    assert images.save_images(item) == (1, 2)
+    missing, page = "https://x.test/missing.png", "https://x.test/page.png"
+    assert images.save_images(item) == (1, [missing, page])
 
-    item.refresh_from_db()
-    assert "](https://x.test/missing.png)" in item.markdown
-    assert "](https://x.test/page.png)" in item.markdown
-    assert "](https://x.test/ok.png)" not in item.markdown
+    item.page.refresh_from_db()
+    assert "](https://x.test/missing.png)" in item.page.markdown
+    assert "](https://x.test/page.png)" in item.page.markdown
+    assert "](https://x.test/ok.png)" not in item.page.markdown
 
 
 def test_size_limit(item, item_sources_dir, transport, monkeypatch):
     monkeypatch.setattr(images, "MAX_BYTES", 3)
     transport(png)
-    item.markdown = "![](https://x.test/a.png)"
-    item.save()
+    item.page.markdown = "![](https://x.test/a.png)"
+    item.page.save()
 
-    assert images.save_images(item) == (0, 1)
+    assert images.save_images(item) == (0, ["https://x.test/a.png"])
     assert not item.sources.filter(kind=ItemSource.Kind.IMAGE).exists()
 
 
 def test_after_reextract_swaps_without_downloading(item, item_sources_dir, transport):
     seen = transport(png)
     original = "![a](https://x.test/a.png)"
-    item.markdown = original
-    item.save()
+    item.page.markdown = original
+    item.page.save()
     images.save_images(item)
-    swapped = item.markdown
+    swapped = item.page.markdown
 
     # reextract puts the original URL back.
-    item.markdown = original
-    item.save()
+    item.page.markdown = original
+    item.page.save()
 
-    assert images.save_images(item) == (0, 0)
-    assert item.markdown == swapped
+    assert images.save_images(item) == (0, [])
+    assert item.page.markdown == swapped
     assert len(seen) == 1
 
 
 def test_missing_file_is_downloaded_again(item, item_sources_dir, transport):
     seen = transport(png)
-    item.markdown = "![a](https://x.test/a.png)"
-    item.save()
+    item.page.markdown = "![a](https://x.test/a.png)"
+    item.page.save()
     images.save_images(item)
     item.sources.get(kind=ItemSource.Kind.IMAGE).path.unlink()
-    item.markdown = "![a](https://x.test/a.png)"
+    item.page.markdown = "![a](https://x.test/a.png)"
 
-    assert images.save_images(item) == (1, 0)
+    assert images.save_images(item) == (1, [])
     assert item.sources.filter(kind=ItemSource.Kind.IMAGE).count() == 1
     assert len(seen) == 2
 
@@ -228,11 +229,11 @@ def test_missing_file_is_downloaded_again(item, item_sources_dir, transport):
 
 def test_og_image_saved(item, item_sources_dir, transport):
     seen = transport(png)
-    item.markdown = ""
-    item.meta = {"og:image": "/share.png"}
-    item.save()
+    item.page.markdown = ""
+    item.page.meta = {"og:image": "/share.png"}
+    item.page.save()
 
-    assert images.save_images(item) == (1, 0)
+    assert images.save_og_image(item) == "saved"
 
     source = item.sources.get(kind=ItemSource.Kind.OG_IMAGE)
     assert source.url == urljoin(item.url, "/share.png")
@@ -242,12 +243,12 @@ def test_og_image_saved(item, item_sources_dir, transport):
 
 def test_og_image_not_downloaded_twice(item, item_sources_dir, transport):
     seen = transport(png)
-    item.markdown = ""
-    item.meta = {"og:image": "https://x.test/share.png"}
-    item.save()
-    images.save_images(item)
+    item.page.markdown = ""
+    item.page.meta = {"og:image": "https://x.test/share.png"}
+    item.page.save()
+    images.save_og_image(item)
 
-    assert images.save_images(item) == (0, 0)
+    assert images.save_og_image(item) == "kept"
     assert len(seen) == 1
 
 
@@ -259,14 +260,14 @@ def test_og_image_new_url_replaces_old(item, item_sources_dir, transport):
         )
 
     transport(handler)
-    item.markdown = ""
-    item.meta = {"og:image": "https://x.test/one.png"}
-    item.save()
-    images.save_images(item)
+    item.page.markdown = ""
+    item.page.meta = {"og:image": "https://x.test/one.png"}
+    item.page.save()
+    images.save_og_image(item)
     old = item.sources.get(kind=ItemSource.Kind.OG_IMAGE)
 
-    item.meta = {"og:image": "https://x.test/two.png"}
-    assert images.save_images(item) == (1, 0)
+    item.page.meta = {"og:image": "https://x.test/two.png"}
+    assert images.save_og_image(item) == "saved"
 
     new = item.sources.get(kind=ItemSource.Kind.OG_IMAGE)
     assert new.url == "https://x.test/two.png"
@@ -275,15 +276,16 @@ def test_og_image_new_url_replaces_old(item, item_sources_dir, transport):
 
 def test_og_image_failure_keeps_old(item, item_sources_dir, transport):
     transport(png)
-    item.markdown = ""
-    item.meta = {"og:image": "https://x.test/one.png"}
-    item.save()
-    images.save_images(item)
+    item.page.markdown = ""
+    item.page.meta = {"og:image": "https://x.test/one.png"}
+    item.page.save()
+    images.save_og_image(item)
 
     transport(lambda request: httpx2.Response(404))
-    item.meta = {"og:image": "https://x.test/two.png"}
+    item.page.meta = {"og:image": "https://x.test/two.png"}
 
-    assert images.save_images(item) == (0, 1)
+    with pytest.raises(httpx2.HTTPStatusError):
+        images.save_og_image(item)
     assert (
         item.sources.get(kind=ItemSource.Kind.OG_IMAGE).url == "https://x.test/one.png"
     )
@@ -293,11 +295,12 @@ def test_og_image_same_file_as_article_image(
     item, item_sources_dir, transport, user_client
 ):
     transport(png)
-    item.markdown = "![a](https://x.test/a.png)"
-    item.meta = {"og:image": "https://x.test/a.png"}
-    item.save()
+    item.page.markdown = "![a](https://x.test/a.png)"
+    item.page.meta = {"og:image": "https://x.test/a.png"}
+    item.page.save()
 
-    assert images.save_images(item) == (2, 0)
+    assert images.save_images(item) == (1, [])
+    assert images.save_og_image(item) == "saved"
 
     og = item.sources.get(kind=ItemSource.Kind.OG_IMAGE)
     article = item.sources.get(kind=ItemSource.Kind.IMAGE)
@@ -308,16 +311,16 @@ def test_og_image_same_file_as_article_image(
 
 def test_api_meta_and_og_image(item, item_sources_dir, transport, user_client):
     transport(png)
-    item.markdown = ""
-    item.meta = {"og:image": "https://x.test/share.png", "og:type": "article"}
-    item.save()
+    item.page.markdown = ""
+    item.page.meta = {"og:image": "https://x.test/share.png", "og:type": "article"}
+    item.page.save()
     url = f"/api/v1/items/{ids.encode(item.id)}"
-    assert user_client.get(url).json()["og_image"] is None
+    assert user_client.get(url).json()["page"]["og_image"] is None
 
-    images.save_images(item)
+    images.save_og_image(item)
 
-    data = user_client.get(url).json()
-    assert data["meta"] == item.meta
+    data = user_client.get(url).json()["page"]
+    assert data["meta"] == item.page.meta
     source = item.sources.get(kind=ItemSource.Kind.OG_IMAGE)
     assert data["og_image"] == images.local_url(item, source.filename)
     response = user_client.get(data["og_image"])

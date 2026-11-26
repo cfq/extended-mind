@@ -26,7 +26,9 @@ export async function api<T>(
   { method = "GET", body }: { method?: string; body?: unknown } = {},
 ): Promise<T> {
   const headers = new Headers();
-  if (body !== undefined) headers.set("Content-Type", "application/json");
+  // FormData (file uploads) sets its own multipart Content-Type.
+  const form = body instanceof FormData;
+  if (body !== undefined && !form) headers.set("Content-Type", "application/json");
   if (method !== "GET") {
     const token = await csrfToken();
     if (token) headers.set("X-CSRFToken", token);
@@ -35,7 +37,7 @@ export async function api<T>(
   const res = await fetch(`/api/v1${path}`, {
     method,
     headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: body === undefined ? undefined : form ? body : JSON.stringify(body),
     credentials: "same-origin",
   });
 
