@@ -1,7 +1,8 @@
 from django.core.management.base import BaseCommand
 
-from apps.items import autotag, steps
 from apps.items.models import Item
+from apps.items.pipeline import steps
+from apps.items.tagging import model as autotag
 
 
 class Command(BaseCommand):

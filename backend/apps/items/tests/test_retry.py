@@ -4,8 +4,10 @@ import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from PIL import Image
 
-from apps.items import browser, fetch, ids, steps
+from apps.items import ids
 from apps.items.models import Item, ItemSource, ItemStep, ItemStepRun
+from apps.items.pipeline import browser, flow, steps
+from apps.items.pipeline.download import FetchError
 from apps.items.tasks import process_upload, retry_plan, retry_step, tag_item
 
 ITEMS = "/api/v1/items"
@@ -194,7 +196,7 @@ def test_retry_tag_queues_it_on_its_own_queue(
     user_client, item, app, monkeypatch, settings
 ):
     settings.OLLAMA_URL = "http://ollama.test"
-    monkeypatch.setattr("apps.items.autotag.autotag", lambda item: [])
+    monkeypatch.setattr("apps.items.tagging.model.autotag", lambda item: [])
     steps.need(item, "tag")
     retry(user_client, item, "tag")
     run_jobs(app, "apps.items.tasks.retry_step", retry_step)
@@ -210,7 +212,7 @@ def test_retry_extract_failure_stops_there(user_client, item, item_sources_dir, 
         path.unlink()
     retry(user_client, item, "extract")
 
-    with pytest.raises(fetch.FetchError):
+    with pytest.raises(FetchError):
         run_jobs(app, "apps.items.tasks.retry_step", retry_step)
 
     assert runs(item)[-1] == ("extract", "failed")
@@ -244,7 +246,7 @@ def test_retry_browser_visits_again_then_extracts(
 
 def test_retry_fetch_is_the_whole_pass(user_client, item, app, monkeypatch):
     passes = []
-    monkeypatch.setattr(fetch, "fetch", lambda item, run_id: passes.append(run_id))
+    monkeypatch.setattr(flow, "fetch", lambda item, run_id: passes.append(run_id))
     steps.need(item, "fetch_http")
     retry(user_client, item, "fetch_http")
 

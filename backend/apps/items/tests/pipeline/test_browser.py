@@ -4,8 +4,10 @@ import httpx2
 import pytest
 from django.core.management import call_command
 
-from apps.items import browser, fetch, ids, steps
+from apps.items import ids
 from apps.items.models import Item, ItemSource, ItemStepRun, PageItem
+from apps.items.pipeline import browser, download, flow, steps
+from apps.items.pipeline.download import FetchError
 
 Kind = ItemSource.Kind
 Outcome = ItemStepRun.Outcome
@@ -35,16 +37,16 @@ def http(monkeypatch):
     """http(body) serves HTML; http(status=403) fails with that status."""
 
     def use(body: str | None = PLAIN, status: int = 200, mime: str = "text/html"):
-        def download(url):
+        def fake_download(url):
             if status >= 400:
                 request = httpx2.Request("GET", url)
                 response = httpx2.Response(status, request=request)
                 raise httpx2.HTTPStatusError("x", request=request, response=response)
-            return fetch.Download(
+            return download.Download(
                 URL, mime, "utf-8", body.encode() if body is not None else None, status
             )
 
-        monkeypatch.setattr(fetch, "download", download)
+        monkeypatch.setattr(download, "download", fake_download)
 
     return use
 
@@ -74,7 +76,7 @@ def chrome(settings, monkeypatch):
 
 def go(item):
     """A pass through the pipeline, as fetch_item runs it."""
-    fetch.fetch(item, steps.new_run_id())
+    flow.fetch(item, steps.new_run_id())
     item.refresh_from_db()
 
 
@@ -160,7 +162,7 @@ def test_neither_has_content(page, http, chrome, item_sources_dir):
     http(EMPTY)
     chrome(EMPTY)
 
-    with pytest.raises(fetch.FetchError):
+    with pytest.raises(FetchError):
         go(page)
 
     assert attempts(page) == [
@@ -192,7 +194,7 @@ def test_blocked_everywhere_fails_and_logs(page, http, chrome, item_sources_dir)
     http(status=403)
     chrome(error=browser.Blocked("Challenge page didn't clear.", 403))
 
-    with pytest.raises(fetch.FetchError):
+    with pytest.raises(FetchError):
         go(page)
 
     assert attempts(page) == [
@@ -218,7 +220,7 @@ def test_not_html_or_image_fails_without_browser(page, http, chrome, item_source
     http(body=None, mime="application/pdf")
     visits = chrome()
 
-    with pytest.raises(fetch.FetchError):
+    with pytest.raises(FetchError):
         go(page)
 
     assert visits == []

@@ -128,7 +128,7 @@ def visit(url: str) -> Visit:
     Raises Blocked for bot walls, BrowserError for anything else."""
     from playwright.sync_api import TimeoutError, sync_playwright
 
-    from apps.items.fetch import USER_AGENT
+    from apps.items.pipeline.download import USER_AGENT
 
     try:
         with sync_playwright() as playwright:

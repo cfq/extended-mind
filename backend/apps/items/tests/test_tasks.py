@@ -1,7 +1,9 @@
 import pytest
 
-from apps.items import autotag, fetch, steps
 from apps.items.models import Item, PageItem
+from apps.items.pipeline import flow, steps
+from apps.items.pipeline.download import FetchError
+from apps.items.tagging import model as autotag
 from apps.items.tasks import fetch_item, tag_item
 
 
@@ -25,7 +27,7 @@ def test_fetch_item_runs_a_pass(pending, monkeypatch, app):
         passes.append(run_id)
         become_page(item, run_id)
 
-    monkeypatch.setattr(fetch, "fetch", fake_fetch)
+    monkeypatch.setattr(flow, "fetch", fake_fetch)
 
     fetch_item(item_id=str(pending.id))
 
@@ -36,11 +38,11 @@ def test_fetch_item_runs_a_pass(pending, monkeypatch, app):
 def test_fetch_item_failed(pending, monkeypatch):
     def fail(item, run_id):
         with steps.run(item, "fetch_http", run_id):
-            raise fetch.FetchError("Nope.")
+            raise FetchError("Nope.")
 
-    monkeypatch.setattr(fetch, "fetch", fail)
+    monkeypatch.setattr(flow, "fetch", fail)
 
-    with pytest.raises(fetch.FetchError):
+    with pytest.raises(FetchError):
         fetch_item(item_id=str(pending.id))
 
     item = Item.objects.get(pk=pending.pk)
@@ -48,7 +50,7 @@ def test_fetch_item_failed(pending, monkeypatch):
 
 
 def test_fetch_item_queues_tagging_and_images_with_its_pass(pending, monkeypatch, app):
-    monkeypatch.setattr(fetch, "fetch", become_page)
+    monkeypatch.setattr(flow, "fetch", become_page)
 
     fetch_item(item_id=str(pending.id))
 
@@ -65,11 +67,11 @@ def test_fetch_item_queues_tagging_and_images_with_its_pass(pending, monkeypatch
 
 def test_failed_fetch_queues_nothing(pending, monkeypatch, app):
     def fail(item, run_id):
-        raise fetch.FetchError("nope")
+        raise FetchError("nope")
 
-    monkeypatch.setattr(fetch, "fetch", fail)
+    monkeypatch.setattr(flow, "fetch", fail)
 
-    with pytest.raises(fetch.FetchError):
+    with pytest.raises(FetchError):
         fetch_item(item_id=str(pending.id))
 
     assert not app.connector.jobs

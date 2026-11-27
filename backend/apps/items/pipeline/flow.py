@@ -1,87 +1,20 @@
+"""A pass through the pipeline: fetch, decide the type, then the type's
+steps. Also single steps on their own, for retries and reextract."""
+
 import re
 import uuid
-from datetime import date
-from typing import NamedTuple
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-import courlan
 import httpx2
-import trafilatura
 from django.conf import settings
 from django.utils import timezone
 from django.utils.text import slugify
 
-from apps.items import browser, cleanup, image_items, images, meta, steps, tagging
 from apps.items.models import Item, ItemSource, ItemStepRun, ItemTag, PageItem
-from apps.items.sources import save_source
-
-USER_AGENT = (
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/141.0 Safari/537.36"
-)
-TIMEOUT = 60
-MAX_BYTES = 50 * 1024 * 1024
-HTML_TYPES = {"text/html", "application/xhtml+xml"}
-# Bot walls answer with these; the browser may still get through.
-BLOCKED_STATUSES = {401, 403, 429, 503}
-
-# On top of what courlan strips (utm_* etc.).
-TRACKING_PARAMS = {
-    "fbclid",
-    "gclid",
-    "dclid",
-    "msclkid",
-    "igsh",
-    "si",
-    "mc_cid",
-    "mc_eid",
-}
-
-
-class FetchError(Exception):
-    pass
-
-
-def clean_url(url: str) -> str:
-    try:
-        url = courlan.normalize_url(url, strict=True)
-    except Exception:
-        pass
-    parts = urlsplit(url)
-    query = [(k, v) for k, v in parse_qsl(parts.query) if k not in TRACKING_PARAMS]
-    return urlunsplit(parts._replace(query=urlencode(query)))
-
-
-class Download(NamedTuple):
-    url: str
-    mime: str
-    encoding: str | None
-    # None if not HTML.
-    body: bytes | None
-    status: int
-
-
-def download(url: str) -> Download:
-    """Final URL after redirects, mime type, encoding, body and status.
-    A body for HTML pages and images only."""
-    with httpx2.Client(
-        follow_redirects=True, timeout=TIMEOUT, headers={"User-Agent": USER_AGENT}
-    ) as client:
-        with client.stream("GET", url) as response:
-            response.raise_for_status()
-            final_url = str(response.url)
-            content_type = response.headers.get("content-type", "")
-            mime = content_type.split(";")[0].strip().lower()
-            if mime not in HTML_TYPES | image_items.MIME_TYPES:
-                return Download(final_url, mime, None, None, response.status_code)
-            body = bytearray()
-            for chunk in response.iter_bytes():
-                body += chunk
-                if len(body) > MAX_BYTES:
-                    raise FetchError("Larger than 50 MB.")
-            return Download(
-                final_url, mime, response.encoding, bytes(body), response.status_code
-            )
+from apps.items.pipeline import browser, download, originals, steps
+from apps.items.pipeline.download import BLOCKED_STATUSES, FetchError, clean_url
+from apps.items.pipeline.extract import extract
+from apps.items.pipeline.sources import save_source
+from apps.items.tagging import rules as tagging
 
 
 def source_filename(item: Item, title: str, description: str) -> str:
@@ -89,13 +22,6 @@ def source_filename(item: Item, title: str, description: str) -> str:
     url = re.sub(r"[^\w-]+", " ", re.sub(r"^https?://", "", item.url))
     slug = slugify(title or description or url)[:60].strip("-")
     return f"{slug}-{item.short_id}.html" if slug else f"{item.short_id}.html"
-
-
-def parse_date(value: str | None) -> date | None:
-    try:
-        return date.fromisoformat(value) if value else None
-    except ValueError:
-        return None
 
 
 def ensure_page(item: Item) -> PageItem:
@@ -107,45 +33,17 @@ def ensure_page(item: Item) -> PageItem:
         return page
 
 
-def extract(item: Item, html: str | bytes) -> list[str]:
-    """Fills the item's content and metadata from a page's HTML, on the
-    item and its page (unsaved). Returns the tags the page declares."""
-    page = item.page
-    page.meta = meta.parse(html)
-    html = images.tidy_html(html, item.url)
-    markdown = trafilatura.extract(
-        html,
-        url=item.url,
-        output_format="markdown",
-        include_links=True,
-        include_formatting=True,
-        include_images=True,
-    )
-    if not markdown:
-        raise FetchError("No article content found.")
-    metadata = trafilatura.extract_metadata(html, default_url=item.url)
-    item.title = (metadata and metadata.title) or ""
-    item.description = (metadata and metadata.description) or ""
-    item.site_name = (metadata and metadata.sitename) or ""
-    item.published_at = parse_date(metadata and metadata.date)
-    page.author = (metadata and metadata.author) or ""
-    page.markdown = cleanup.clean_markdown(markdown, item.url)
-    text = trafilatura.extract(html, url=item.url, output_format="txt") or ""
-    page.text = cleanup.clean_text(text)
-    if not metadata:
-        return []
-    return tagging.page_tags(metadata.categories, metadata.tags)
-
-
 Outcome = ItemStepRun.Outcome
 
 
-def fetch_http(item: Item, run_id: uuid.UUID) -> tuple[Download, steps.Run] | None:
+def fetch_http(
+    item: Item, run_id: uuid.UUID
+) -> tuple[download.Download, steps.Run] | None:
     """None if blocked (the browser may get through). Raises on other
     failures, and for content that's neither a page nor an image."""
     with steps.run(item, "fetch_http", run_id) as run:
         try:
-            result = download(item.url)
+            result = download.download(item.url)
         except httpx2.HTTPStatusError as e:
             status = e.response.status_code
             outcome = Outcome.BLOCKED if status in BLOCKED_STATUSES else Outcome.FAILED
@@ -195,12 +93,12 @@ def fetch(item: Item, run_id: uuid.UUID):
     rendered one. Every step and try is recorded."""
     fetched = fetch_http(item, run_id)
     http, http_run = fetched if fetched else (None, None)
-    if http and http.mime in image_items.MIME_TYPES:
+    if http and http.mime in originals.MIME_TYPES:
         item.url = clean_url(http.url)
         item.fetched_at = timezone.now()
-        name = image_items.name_from_url(http.url)
-        image_items.make_image(item, name, http.url, http.body, run_id)
-        image_items.dimensions(item, run_id)
+        name = originals.name_from_url(http.url)
+        originals.make_image(item, name, http.url, http.body, run_id)
+        originals.dimensions(item, run_id)
         return
 
     if settings.BROWSER_URL:

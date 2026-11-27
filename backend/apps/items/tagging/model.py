@@ -10,8 +10,8 @@ import httpx2
 from django.conf import settings
 from django.db.models import Count
 
-from apps.items import tagging
 from apps.items.models import Item, ItemTag
+from apps.items.tagging import rules as tagging
 
 MAX_TAGS = 3
 # Shorter is faster on CPU; the opening says what an article is about.

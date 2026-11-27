@@ -1,7 +1,8 @@
 import pytest
 
-from apps.items import fetch, steps, tagging
 from apps.items.models import Item, ItemTag, ItemTagRemoval, PageItem, Tag
+from apps.items.pipeline import download, extract, flow, steps
+from apps.items.tagging import rules as tagging
 
 PAGE = ItemTag.Source.PAGE
 MODEL = ItemTag.Source.MODEL
@@ -113,7 +114,7 @@ def test_extract_returns_page_tags():
     item = Item(url="https://example.com/indexes")
     PageItem(item=item)
 
-    assert fetch.extract(item, TAGGED_HTML) == [
+    assert extract.extract(item, TAGGED_HTML) == [
         "postgres",
         "databases",
         "sql",
@@ -124,14 +125,14 @@ def test_extract_returns_page_tags():
 def test_fetch_adds_page_tags(user, item_sources_dir, monkeypatch):
     item = Item.objects.create(user=user, url="https://x.test", url_submitted="x")
     monkeypatch.setattr(
-        fetch,
+        download,
         "download",
-        lambda url: fetch.Download(
+        lambda url: download.Download(
             url, "text/html", "utf-8", TAGGED_HTML.encode(), 200
         ),
     )
 
-    fetch.fetch(item, steps.new_run_id())
+    flow.fetch(item, steps.new_run_id())
 
     assert tags_of(item) == {
         "postgres": PAGE,

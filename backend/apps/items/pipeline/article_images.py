@@ -4,116 +4,23 @@ image."""
 
 import hashlib
 import logging
-import mimetypes
 import re
 from typing import NamedTuple
-from urllib.parse import unquote, urlsplit
 
 import httpx2
-import trafilatura
-from django.utils.text import slugify
-from lxml import html as lxml_html
 
-from apps.items import cleanup, ids, meta
 from apps.items.models import Item, ItemSource, ItemStepRun
+from apps.items.pipeline import extract
+from apps.items.pipeline.sources import image_filename, local_url
 
 log = logging.getLogger(__name__)
 
 TIMEOUT = 30
 MAX_BYTES = 20 * 1024 * 1024
 MAX_IMAGES = 100
-# srcset: the candidate closest to this width, preferring wider.
-TARGET_WIDTH = 1600
-# A 1x candidate with no width, roughly.
-X_WIDTH = 800
-LAZY_SRC = ("data-src", "data-lazy-src", "data-original")
-LAZY_SRCSET = ("data-srcset", "data-lazy-srcset")
 
 # ![alt](url) or ![alt](url "title")
 MARKDOWN_IMAGE = re.compile(r"!\[[^\]]*\]\((\S+?)(?:\s+\"[^\"]*\")?\)")
-
-EXTENSIONS = {"image/jpeg": ".jpg", "image/svg+xml": ".svg"}
-
-
-# HTML tidying, before extraction.
-
-
-def parse_srcset(srcset: str) -> list[tuple[str, float]]:
-    """[(url, width)]. URLs can contain commas (Substack's do), so
-    candidates are split on a comma followed by whitespace."""
-    candidates = []
-    for part in re.split(r",\s+", srcset.strip()):
-        bits = part.strip().rstrip(",").split()
-        if not bits:
-            continue
-        width = float(X_WIDTH)
-        if len(bits) > 1:
-            descriptor = bits[-1]
-            try:
-                if descriptor.endswith("w"):
-                    width = float(descriptor[:-1])
-                elif descriptor.endswith("x"):
-                    width = float(descriptor[:-1]) * X_WIDTH
-            except ValueError:
-                pass
-        candidates.append((bits[0], width))
-    return candidates
-
-
-def best_source(candidates: list[tuple[str, float]]) -> str | None:
-    if not candidates:
-        return None
-    wide = [c for c in candidates if c[1] >= TARGET_WIDTH]
-    if wide:
-        return min(wide, key=lambda c: c[1])[0]
-    return max(candidates, key=lambda c: c[1])[0]
-
-
-def is_placeholder(src: str | None) -> bool:
-    return not src or src.startswith("data:")
-
-
-def tidy_html(html: str | bytes, url: str) -> str | bytes:
-    """Rewrites image markup trafilatura would drop or misread:
-    <picture> to one <img>, srcset to the best src, lazy-load attributes
-    to src, relative URLs to absolute."""
-    tree = trafilatura.load_html(html)
-    if tree is None:
-        return html
-
-    for img in tree.iter("img"):
-        for attr in LAZY_SRCSET:
-            if img.get(attr):
-                img.set("srcset", img.get(attr))
-        for attr in LAZY_SRC:
-            if img.get(attr) and is_placeholder(img.get("src")):
-                img.set("src", img.get(attr))
-
-    for picture in list(tree.iter("picture")):
-        img = next(picture.iter("img"), None)
-        if img is None:
-            continue
-        candidates = []
-        for source in picture.iter("source"):
-            candidates += parse_srcset(source.get("srcset") or "")
-        candidates += parse_srcset(img.get("srcset") or "")
-        best = best_source(candidates)
-        if best:
-            img.set("src", best)
-        img.attrib.pop("srcset", None)
-        img.tail = picture.tail
-        picture.getparent().replace(picture, img)
-
-    for img in tree.iter("img"):
-        best = best_source(parse_srcset(img.get("srcset") or ""))
-        if best:
-            img.set("src", best)
-        img.attrib.pop("srcset", None)
-        img.attrib.pop("sizes", None)
-
-    cleanup.mark_anchors(tree)
-    tree.make_links_absolute(url, resolve_base_href=True, handle_failures="ignore")
-    return lxml_html.tostring(tree, encoding="unicode")
 
 
 # Download.
@@ -130,7 +37,7 @@ def image_urls(markdown: str) -> list[str]:
 
 def download(url: str, referer: str) -> tuple[str, bytes]:
     """Mime type and body. Raises on HTTP errors, non-images, too large."""
-    from apps.items.fetch import USER_AGENT
+    from apps.items.pipeline.download import USER_AGENT
 
     headers = {"User-Agent": USER_AGENT, "Referer": referer}
     with httpx2.Client(follow_redirects=True, timeout=TIMEOUT, headers=headers) as c:
@@ -146,19 +53,6 @@ def download(url: str, referer: str) -> tuple[str, bytes]:
                 if len(body) > MAX_BYTES:
                     raise ValueError("Image is larger than 20 MB.")
             return mime, bytes(body)
-
-
-def image_filename(url: str, mime: str, sha256: str) -> str:
-    # Decoded first: CDNs like Substack's end the path with the original URL.
-    stem = unquote(urlsplit(url).path).rsplit("/", 1)[-1].rsplit(".", 1)[0]
-    slug = slugify(stem)[:40].strip("-")
-    ext = EXTENSIONS.get(mime) or mimetypes.guess_extension(mime) or ""
-    return f"{slug}-{sha256[:8]}{ext}" if slug else f"{sha256[:8]}{ext}"
-
-
-def local_url(item: Item, filename: str) -> str:
-    # Stored in the markdown: keep this path stable.
-    return f"/api/v1/items/{ids.encode(item.id)}/sources/{filename}"
 
 
 def save_image(
@@ -221,7 +115,7 @@ def save_og_image(item: Item, run: ItemStepRun | None = None) -> str:
     """Downloads the page's sharing image, unless the same URL is already
     saved. A new URL replaces the old file; a failed download raises and
     keeps it. Returns "none" (the page has none), "kept" or "saved"."""
-    url = meta.image_url(item.page.meta, item.url)
+    url = extract.sharing_image_url(item.page.meta, item.url)
     if not url:
         return "none"
     old = item.sources.filter(kind=ItemSource.Kind.OG_IMAGE).first()

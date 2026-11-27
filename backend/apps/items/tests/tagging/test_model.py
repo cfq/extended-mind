@@ -1,7 +1,8 @@
 import pytest
 
-from apps.items import autotag, tagging
 from apps.items.models import ItemTag, Tag
+from apps.items.tagging import model as autotag
+from apps.items.tagging import rules as tagging
 
 MODEL = ItemTag.Source.MODEL
 MANUAL = ItemTag.Source.MANUAL

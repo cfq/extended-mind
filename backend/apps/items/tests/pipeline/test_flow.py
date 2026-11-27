@@ -1,32 +1,15 @@
-import functools
 import hashlib
 import uuid
 from datetime import date
-from urllib.parse import parse_qs, urlsplit
 
-import httpx2
 import pytest
 
-from apps.items import fetch, steps
 from apps.items.models import Item, ItemSource, PageItem
+from apps.items.pipeline import download, flow, steps
+from apps.items.pipeline.download import FetchError
 
 HANDLES = "01a1a417-604d-7679-9ecf-8b8932f3091c"
 EDEN = "01a1a42b-07df-70aa-81c9-8eb4c9cc7688"
-
-
-# clean_url
-
-
-def test_clean_url_strips_tracking():
-    url = fetch.clean_url(
-        "https://example.com/post?utm_source=x&id=1&fbclid=y&gclid=z&si=q"
-    )
-
-    assert parse_qs(urlsplit(url).query) == {"id": ["1"]}
-
-
-def test_clean_url_keeps_plain_url():
-    assert fetch.clean_url("https://example.com/post") == "https://example.com/post"
 
 
 # source_filename
@@ -48,7 +31,7 @@ def make_item(url="https://example.com/some/post"):
 def test_source_filename_fallbacks(title, description, slug):
     item = make_item()
 
-    filename = fetch.source_filename(item, title, description)
+    filename = flow.source_filename(item, title, description)
 
     assert filename == f"{slug}-{item.short_id}.html"
 
@@ -56,87 +39,18 @@ def test_source_filename_fallbacks(title, description, slug):
 def test_source_filename_capped():
     item = make_item()
 
-    filename = fetch.source_filename(item, "word " * 50, "")
+    filename = flow.source_filename(item, "word " * 50, "")
 
     slug = filename.removesuffix(f"-{item.short_id}.html")
     assert len(slug) <= 60
     assert not slug.endswith("-")
 
 
-# download: no network, httpx2's mock transport
-
-
-@pytest.fixture
-def transport(monkeypatch):
-    """Route download() through a handler: transport(handler)."""
-
-    def use(handler):
-        client = functools.partial(
-            httpx2.Client, transport=httpx2.MockTransport(handler)
-        )
-        monkeypatch.setattr(fetch.httpx2, "Client", client)
-
-    return use
-
-
-def html_response(body=b"<html></html>", status=200):
-    return httpx2.Response(
-        status, headers={"content-type": "text/html; charset=utf-8"}, content=body
-    )
-
-
-def test_download_follows_redirects(transport):
-    def handler(request):
-        if request.url.path == "/old":
-            return httpx2.Response(301, headers={"location": "https://example.com/new"})
-        return html_response(b"<p>hi</p>")
-
-    transport(handler)
-
-    final_url, mime, encoding, body, status = fetch.download("https://example.com/old")
-
-    assert final_url == "https://example.com/new"
-    assert status == 200
-    assert mime == "text/html"
-    assert encoding == "utf-8"
-    assert body == b"<p>hi</p>"
-
-
-def test_download_non_html_has_no_body(transport):
-    transport(
-        lambda request: httpx2.Response(
-            200, headers={"content-type": "application/pdf"}, content=b"%PDF"
-        )
-    )
-
-    final_url, mime, encoding, body, status = fetch.download(
-        "https://example.com/a.pdf"
-    )
-
-    assert mime == "application/pdf"
-    assert body is None
-
-
-def test_download_size_limit(transport, monkeypatch):
-    monkeypatch.setattr(fetch, "MAX_BYTES", 10)
-    transport(lambda request: html_response(b"x" * 11))
-
-    with pytest.raises(fetch.FetchError):
-        fetch.download("https://example.com/")
-
-
-def test_download_http_error(transport):
-    transport(lambda request: html_response(status=404))
-
-    with pytest.raises(httpx2.HTTPStatusError):
-        fetch.download("https://example.com/")
-
-
 # fetch: download patched, trafilatura for real on fixture HTML
 
 
 def go(item):
-    fetch.fetch(item, steps.new_run_id())
+    flow.fetch(item, steps.new_run_id())
 
 
 @pytest.fixture
@@ -145,9 +59,9 @@ def downloads(monkeypatch):
 
     def use(final_url, mime="text/html", body=None):
         monkeypatch.setattr(
-            fetch,
+            download,
             "download",
-            lambda url: fetch.Download(final_url, mime, "utf-8", body, 200),
+            lambda url: download.Download(final_url, mime, "utf-8", body, 200),
         )
 
     return use
@@ -185,7 +99,7 @@ def test_fetch_non_html(user, item_sources_dir, downloads):
     item = Item.objects.create(user=user, url="https://x.test", url_submitted="x")
     downloads("https://example.com/a.pdf", mime="application/pdf")
 
-    with pytest.raises(fetch.FetchError):
+    with pytest.raises(FetchError):
         go(item)
 
     item = Item.objects.get(pk=item.pk)
@@ -200,7 +114,7 @@ def test_fetch_no_content(user, item_sources_dir, downloads):
     item = Item.objects.create(user=user, url="https://x.test", url_submitted="x")
     downloads("https://example.com/", body=b"<html><body></body></html>")
 
-    with pytest.raises(fetch.FetchError):
+    with pytest.raises(FetchError):
         go(item)
 
 
@@ -230,11 +144,3 @@ def test_fetch_metadata(user, item_sources_dir, downloads, fixture_html):
     assert item.page.author == "Terence Eden"
     assert item.site_name == "Terence Eden’s Blog"
     assert item.published_at == date(2026, 11, 3)
-
-
-@pytest.mark.parametrize(
-    "value, expected",
-    [("2026-11-03", date(2026, 11, 3)), ("", None), (None, None), ("not a date", None)],
-)
-def test_parse_date(value, expected):
-    assert fetch.parse_date(value) == expected

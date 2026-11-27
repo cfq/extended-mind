@@ -1,7 +1,8 @@
 from django.core.management.base import BaseCommand
 
-from apps.items import fetch, steps
 from apps.items.models import Item, ItemSource
+from apps.items.pipeline import flow, steps
+from apps.items.pipeline.download import FetchError
 from apps.items.tasks import save_images
 
 
@@ -19,8 +20,8 @@ class Command(BaseCommand):
         for item in items:
             run_id = steps.new_run_id()
             try:
-                fetch.extract_saved(item, run_id)
-            except fetch.FetchError as e:
+                flow.extract_saved(item, run_id)
+            except FetchError as e:
                 failed += 1
                 self.stderr.write(f"{item.pk}: {e}")
                 continue

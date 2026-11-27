@@ -2,9 +2,10 @@ from datetime import date, datetime
 
 from ninja import Schema
 
-from apps.items import ids, steps
-from apps.items.images import local_url
+from apps.items import ids
 from apps.items.models import Item, ItemSource
+from apps.items.pipeline import steps
+from apps.items.pipeline.sources import local_url
 
 THUMBNAILS = {
     Item.Type.IMAGE: (ItemSource.Kind.ORIGINAL,),

@@ -6,8 +6,9 @@ from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 from PIL import Image
 
-from apps.items import fetch, ids, image_items, images, steps
+from apps.items import ids
 from apps.items.models import ImageItem, Item, ItemSource, ItemStepRun, PageItem
+from apps.items.pipeline import download, flow, originals, sources, steps
 from apps.items.tasks import fetch_item, process_upload, save_images
 
 ITEMS = "/api/v1/items"
@@ -140,7 +141,7 @@ def test_upload_rejected_saves_nothing(
 
 
 def test_upload_size_limit(user_client, item_sources_dir, monkeypatch):
-    monkeypatch.setattr(image_items, "MAX_BYTES", 10)
+    monkeypatch.setattr(originals, "MAX_BYTES", 10)
 
     response = upload(user_client, image_file())
 
@@ -177,12 +178,12 @@ def test_image_url_becomes_image_item(user, item_sources_dir, monkeypatch):
     item = Item.objects.create(user=user, url="https://x.test/p", url_submitted="x")
     url = "https://cdn.test/photos/Big%20Cat.webp"
     monkeypatch.setattr(
-        fetch,
+        download,
         "download",
-        lambda u: fetch.Download(url, "image/webp", None, png(7, 9, "WEBP"), 200),
+        lambda u: download.Download(url, "image/webp", None, png(7, 9, "WEBP"), 200),
     )
 
-    fetch.fetch(item, steps.new_run_id())
+    flow.fetch(item, steps.new_run_id())
 
     item = get(item)
     assert item.type == Item.Type.IMAGE
@@ -202,13 +203,13 @@ def test_image_url_becomes_image_item(user, item_sources_dir, monkeypatch):
 def test_image_url_that_isnt_an_image_fails(user, item_sources_dir, monkeypatch):
     item = Item.objects.create(user=user, url="https://x.test/p", url_submitted="x")
     monkeypatch.setattr(
-        fetch,
+        download,
         "download",
-        lambda u: fetch.Download(u, "image/png", None, b"<html>", 200),
+        lambda u: download.Download(u, "image/png", None, b"<html>", 200),
     )
 
-    with pytest.raises(image_items.NotAnImage):
-        fetch.fetch(item, steps.new_run_id())
+    with pytest.raises(originals.NotAnImage):
+        flow.fetch(item, steps.new_run_id())
 
     assert steps.status(get(item)) == (Item.Status.FAILED, "Not an image.")
 
@@ -283,7 +284,7 @@ def test_list_thumbnail_sharing_image_else_head_screenshot(
         size=1,
         sha256="x",
     )
-    assert thumbnail() == images.local_url(item, head.filename)
+    assert thumbnail() == sources.local_url(item, head.filename)
     og = ItemSource.objects.create(
         item=item,
         kind="og_image",
@@ -293,7 +294,7 @@ def test_list_thumbnail_sharing_image_else_head_screenshot(
         size=1,
         sha256="y",
     )
-    assert thumbnail() == images.local_url(item, og.filename)
+    assert thumbnail() == sources.local_url(item, og.filename)
 
 
 # Image steps for pages
