@@ -3,8 +3,9 @@ import uuid
 from django.conf import settings
 from procrastinate.contrib.django import app
 
-from apps.items import autotag, fetch, image_items, images, steps
 from apps.items.models import Item, ItemStepRun
+from apps.items.pipeline import article_images, flow, originals, steps
+from apps.items.tagging import model as autotag
 
 Outcome = ItemStepRun.Outcome
 
@@ -32,9 +33,9 @@ def fetch_item(item_id: str, run_id: str | None = None):
     rid = pass_id(run_id)
     if item.type == Item.Type.IMAGE and not item.url:
         # An upload: nothing to fetch, its file is already saved.
-        image_items.dimensions(item, rid)
+        originals.dimensions(item, rid)
         return
-    fetch.fetch(item, rid)
+    flow.fetch(item, rid)
     if item.type == Item.Type.PAGE:
         # Own jobs: a slow or failed model never holds up fetches.
         tag_item.defer(item_id=item_id, run_id=str(rid))
@@ -45,19 +46,19 @@ def fetch_item(item_id: str, run_id: str | None = None):
 def process_upload(item_id: str, run_id: str):
     item = Item.objects.filter(id=item_id).first()
     if item:
-        image_items.dimensions(item, pass_id(run_id))
+        originals.dimensions(item, pass_id(run_id))
 
 
 def run_images(item: Item, run_id: uuid.UUID):
     with steps.run(item, "images", run_id) as run:
-        saved = images.save_images(item, run.row)
+        saved = article_images.save_images(item, run.row)
         message = f"{len(saved.failed)} failed." if saved.failed else ""
         run.finish(Outcome.OK, message, saved=saved.new, failed=saved.failed)
 
 
 def run_og_image(item: Item, run_id: uuid.UUID):
     with steps.run(item, "og_image", run_id) as run:
-        result = images.save_og_image(item, run.row)
+        result = article_images.save_og_image(item, run.row)
         if result == "none":
             run.finish(Outcome.SKIPPED, "No sharing image.")
         else:
@@ -112,13 +113,13 @@ def when_usable(run_step):
 
 # Each step on its own, for a retry.
 RETRY = {
-    "fetch_browser": fetch.browse,
-    "extract": fetch.extract_saved,
+    "fetch_browser": flow.browse,
+    "extract": flow.extract_saved,
     "images": when_usable(run_images),
     "og_image": when_usable(run_og_image),
     "tag": in_its_queue("tag"),
-    "save_original": image_items.recheck,
-    "dimensions": image_items.dimensions,
+    "save_original": originals.recheck,
+    "dimensions": originals.dimensions,
 }
 assert set(RETRY) | {"fetch_http"} == set(steps.STEPS)
 

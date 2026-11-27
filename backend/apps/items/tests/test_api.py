@@ -2,8 +2,9 @@ import uuid
 
 import pytest
 
-from apps.items import ids, tagging
+from apps.items import ids
 from apps.items.models import Item, ItemSource, ItemTag
+from apps.items.tagging import rules as tagging
 from apps.users.models import ApiToken
 
 ITEMS = "/api/v1/items"

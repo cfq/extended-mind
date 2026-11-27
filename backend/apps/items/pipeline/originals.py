@@ -9,9 +9,9 @@ from urllib.parse import unquote, urlsplit
 
 from PIL import Image, UnidentifiedImageError
 
-from apps.items import images, steps
 from apps.items.models import ImageItem, Item, ItemSource
-from apps.items.sources import save_source
+from apps.items.pipeline import steps
+from apps.items.pipeline.sources import image_filename, save_source
 
 MAX_BYTES = 50 * 1024 * 1024
 # Pillow format → mime type. What browsers show; no HEIC yet.
@@ -75,7 +75,7 @@ def save_original(item: Item, name: str, url: str, body: bytes, run_id: uuid.UUI
     with steps.run(item, "save_original", run_id) as run:
         mime = check(body)
         sha256 = hashlib.sha256(body).hexdigest()
-        filename = images.image_filename(name, mime, sha256)
+        filename = image_filename(name, mime, sha256)
         save_source(item, ItemSource.Kind.ORIGINAL, filename, url, mime, body, run.row)
         run.note(mime=mime, bytes=len(body))
 

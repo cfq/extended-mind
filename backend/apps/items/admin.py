@@ -1,6 +1,5 @@
 from django.contrib import admin
 
-from apps.items import steps
 from apps.items.models import (
     ImageItem,
     Item,
@@ -11,6 +10,7 @@ from apps.items.models import (
     PageItem,
     Tag,
 )
+from apps.items.pipeline import steps
 
 
 class ItemSourceInline(admin.TabularInline):

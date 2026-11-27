@@ -18,7 +18,7 @@ class Item(models.Model):
         PAGE = "page"
         IMAGE = "image"
 
-    # Derived from the item's steps (apps.items.steps.status), not stored.
+    # Derived from the item's steps (apps.items.pipeline.steps.status), not stored.
     class Status(models.TextChoices):
         PENDING = "pending"
         FETCHING = "fetching"

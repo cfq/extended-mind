@@ -7,9 +7,10 @@ from ninja import File, Form, Router, Status, UploadedFile
 from ninja.errors import HttpError
 from ninja.security import django_auth
 
-from apps.items import ids, image_items, steps, tagging
-from apps.items.fetch import clean_url
+from apps.items import ids
 from apps.items.models import ImageItem, Item, ItemSource, ItemTag, Tag
+from apps.items.pipeline import originals, steps
+from apps.items.pipeline.download import clean_url
 from apps.items.schemas import (
     ActivityOut,
     ItemIn,
@@ -20,6 +21,7 @@ from apps.items.schemas import (
     TagOut,
     item_tags,
 )
+from apps.items.tagging import rules as tagging
 from apps.items.tasks import fetch_item, process_upload, retry_plan, retry_step
 from apps.users.auth import token_auth
 
@@ -70,12 +72,12 @@ def upload_images(
         valid_url(found_on, "Found on: enter a valid http(s) URL.")
     bodies = []
     for upload in file:
-        if upload.size > image_items.MAX_BYTES:
+        if upload.size > originals.MAX_BYTES:
             raise HttpError(400, f"{upload.name}: larger than 50 MB.")
         body = upload.read()
         try:
-            image_items.check(body)
-        except image_items.NotAnImage as e:
+            originals.check(body)
+        except originals.NotAnImage as e:
             raise HttpError(400, f"{upload.name}: {e}") from e
         bodies.append((upload.name or "image", body))
     created = []
@@ -84,12 +86,12 @@ def upload_images(
         item = Item.objects.create(
             user=request.user,
             type=Item.Type.IMAGE,
-            title=image_items.title_from(name),
+            title=originals.title_from(name),
             found_on=found_on,
         )
         ImageItem.objects.create(item=item)
         steps.need(item, "save_original", "dimensions")
-        image_items.save_original(item, name, "", body, run_id)
+        originals.save_original(item, name, "", body, run_id)
         process_upload.defer(item_id=str(item.id), run_id=str(run_id))
         created.append(item.id)
     items = with_related(Item.objects).filter(id__in=created).order_by("created_at")
@@ -162,7 +164,7 @@ SERVED_KINDS = [
 
 
 # Saved images, screenshots and PDFs. Article image URLs are stored in item markdown
-# (images.local_url): keep this path stable.
+# (sources.local_url): keep this path stable.
 @router.get("/{item_id}/sources/{filename}")
 def get_item_source(request, item_id: str, filename: str):
     item = get_item(request, item_id)
