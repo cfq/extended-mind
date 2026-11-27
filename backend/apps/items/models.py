@@ -157,6 +157,8 @@ class ItemStepRun(models.Model):
     """One attempt at a step. Runs of one pass share a run_id."""
 
     class Outcome(models.TextChoices):
+        # Retried, waiting for its job.
+        QUEUED = "queued"
         RUNNING = "running"
         OK = "ok"
         FAILED = "failed"

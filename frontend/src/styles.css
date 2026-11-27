@@ -288,6 +288,113 @@ button.danger {
   text-align: left;
 }
 
+/* Activity: the newest items and their steps, as build-style badges. */
+
+.activity-wrap {
+  overflow-x: auto;
+}
+
+.activity {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.activity td {
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.activity-title {
+  overflow-wrap: anywhere;
+  min-width: 10rem;
+}
+
+.activity-source {
+  max-width: 12rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.activity-source img {
+  display: block;
+  height: 32px;
+  width: auto;
+  max-width: 64px;
+  object-fit: cover;
+}
+
+.activity-source span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Two-part shields, like badgen.net: grey label, coloured state. */
+.badge {
+  --badge-color: #9f9f9f;
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  overflow: hidden;
+  background: none;
+  font: 11px/1 Verdana, "DejaVu Sans", sans-serif;
+  color: #fff;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.badge span {
+  padding: 4px 6px;
+}
+
+.badge-label {
+  background: #555;
+}
+
+.badge-state {
+  background: var(--badge-color);
+}
+
+.badge:hover:not(:disabled) .badge-state,
+.badge:focus-visible .badge-state {
+  filter: brightness(0.9);
+}
+
+.badge:disabled {
+  cursor: default;
+}
+
+.badge-ok {
+  --badge-color: #3c1;
+}
+
+.badge-failed {
+  --badge-color: #e43;
+}
+
+.badge-blocked,
+.badge-no_content {
+  --badge-color: #f73;
+}
+
+.badge-queued,
+.badge-running {
+  --badge-color: #08c;
+}
+
 /* Tags: chips, and the combo box that adds them. Sized in em, so they
    follow the surrounding text. Suggestions (page and model) have a dashed border. */
 

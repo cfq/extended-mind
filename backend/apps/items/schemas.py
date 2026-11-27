@@ -167,3 +167,35 @@ class ItemOut(ItemSummaryOut):
     @staticmethod
     def resolve_image(obj):
         return obj.image if obj.type == Item.Type.IMAGE else None
+
+
+class StepOut(Schema):
+    name: str
+    # pending, queued, running, ok, failed, skipped, blocked, no_content
+    state: str
+    # The latest run's.
+    message: str
+    finished_at: datetime | None
+
+    @staticmethod
+    def resolve_state(obj):
+        return steps.state(obj)
+
+    @staticmethod
+    def resolve_message(obj):
+        run = steps.latest(obj)
+        return run.message if run else ""
+
+    @staticmethod
+    def resolve_finished_at(obj):
+        run = steps.latest(obj)
+        return run.finished_at if run else None
+
+
+class ActivityOut(ItemSummaryOut):
+    # In pipeline order.
+    steps: list[StepOut]
+
+    @staticmethod
+    def resolve_steps(obj):
+        return steps.ordered(list(obj.steps.all()))

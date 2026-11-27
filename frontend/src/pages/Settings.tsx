@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
+import { Activity } from "../components/Activity";
 import { api } from "../lib/api";
 import { useSession } from "../lib/auth";
 
@@ -157,6 +158,10 @@ export function Settings() {
           Log out
         </button>
       </p>
+
+      {/* Here for now; moves to its own place later. */}
+      <h2>Activity</h2>
+      <Activity />
     </section>
   );
 }

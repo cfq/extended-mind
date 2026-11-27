@@ -239,12 +239,11 @@ def fetch(item: Item, run_id: uuid.UUID):
         item.save()
         raise FetchError("No article content found.")
 
-    name = source_filename(item, item.title, item.description).removesuffix(".html")
-    kinds = ItemSource.Kind
     if http:
+        name = file_stem(item)
         save_source(
             item,
-            kinds.HTML,
+            ItemSource.Kind.HTML,
             f"{name}.html",
             http.url,
             http.mime,
@@ -252,47 +251,103 @@ def fetch(item: Item, run_id: uuid.UUID):
             http_run.row,
         )
     if visit:
-        row = browser_run.row
-        save_source(
-            item,
-            kinds.RENDERED,
-            f"{name}-rendered.html",
-            visit.url,
-            "text/html",
-            visit.html.encode(),
-            row,
-        )
-        save_source(
-            item,
-            kinds.SCREENSHOT_FULL,
-            f"{name}-full.png",
-            visit.url,
-            "image/png",
-            visit.full,
-            row,
-        )
-        save_source(
-            item,
-            kinds.SCREENSHOT_HEAD,
-            f"{name}-head.png",
-            visit.url,
-            "image/png",
-            visit.head,
-            row,
-        )
-        if visit.pdf:
-            save_source(
-                item,
-                kinds.PDF,
-                f"{name}.pdf",
-                visit.url,
-                "application/pdf",
-                visit.pdf,
-                row,
-            )
+        save_visit(item, visit, browser_run)
     item.fetched_at = timezone.now()
     item.save()
     item.page.save()
+    extracted(item, tags)
+
+
+def extracted(item: Item, tags: list[str]):
     tagging.add_tags(item, tags, ItemTag.Source.PAGE)
     # Known now: the article's images, its sharing image, model tags.
     steps.need(item, "images", "og_image", "tag")
+
+
+def file_stem(item: Item) -> str:
+    return source_filename(item, item.title, item.description).removesuffix(".html")
+
+
+def save_visit(item: Item, visit: browser.Visit, run: steps.Run):
+    """The browser's rendered page, screenshots and PDF."""
+    name, kinds, row = file_stem(item), ItemSource.Kind, run.row
+    save_source(
+        item,
+        kinds.RENDERED,
+        f"{name}-rendered.html",
+        visit.url,
+        "text/html",
+        visit.html.encode(),
+        row,
+    )
+    save_source(
+        item,
+        kinds.SCREENSHOT_FULL,
+        f"{name}-full.png",
+        visit.url,
+        "image/png",
+        visit.full,
+        row,
+    )
+    save_source(
+        item,
+        kinds.SCREENSHOT_HEAD,
+        f"{name}-head.png",
+        visit.url,
+        "image/png",
+        visit.head,
+        row,
+    )
+    if visit.pdf:
+        save_source(
+            item,
+            kinds.PDF,
+            f"{name}.pdf",
+            visit.url,
+            "application/pdf",
+            visit.pdf,
+            row,
+        )
+
+
+# Single steps again, for retries and reextract.
+
+
+def browse(item: Item, run_id: uuid.UUID):
+    """A new browser visit: rendered page, screenshots, PDF."""
+    browsed = fetch_browser(item, item.url, run_id)
+    if browsed:
+        save_visit(item, *browsed)
+
+
+def extract_saved(item: Item, run_id: uuid.UUID) -> list[str]:
+    """Extraction again from the saved HTML, plain first, then rendered.
+    Saves the item and its page tags. Raises FetchError with each saved
+    page's problem."""
+    order = [ItemSource.Kind.HTML, ItemSource.Kind.RENDERED]
+    sources = sorted(
+        item.sources.filter(kind__in=order), key=lambda s: order.index(s.kind)
+    )
+    item.type = Item.Type.PAGE
+    ensure_page(item)
+    if not sources:
+        with steps.run(item, "extract", run_id):
+            raise FetchError("No saved page.")
+    errors = []
+    for source in sources:
+        with steps.run(item, "extract", run_id) as run:
+            try:
+                # Bytes: trafilatura detects the encoding itself.
+                tags = extract(item, source.path.read_bytes())
+            except OSError as e:
+                run.finish(Outcome.FAILED, str(e), source=source.kind)
+            except FetchError as e:
+                run.finish(Outcome.NO_CONTENT, str(e), source=source.kind)
+            else:
+                run.note(source=source.kind)
+                item.save()
+                item.page.save()
+                extracted(item, tags)
+                return tags
+        errors.append(f"{source.kind}: {run.row.message}")
+    raise FetchError("; ".join(errors))

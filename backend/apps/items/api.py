@@ -11,6 +11,7 @@ from apps.items import ids, image_items, steps, tagging
 from apps.items.fetch import clean_url
 from apps.items.models import ImageItem, Item, ItemSource, ItemTag, Tag
 from apps.items.schemas import (
+    ActivityOut,
     ItemIn,
     ItemOut,
     ItemSummaryOut,
@@ -19,7 +20,7 @@ from apps.items.schemas import (
     TagOut,
     item_tags,
 )
-from apps.items.tasks import fetch_item, process_upload
+from apps.items.tasks import fetch_item, process_upload, retry_plan, retry_step
 from apps.users.auth import token_auth
 
 # Bearer token for the iOS Shortcut and scripts, session for the SPA.
@@ -103,6 +104,17 @@ def list_items(request, tag: str | None = None):
     return items
 
 
+MAX_ACTIVITY = 100
+
+
+# Before /{item_id}, which would match it.
+@router.get("/activity", response=list[ActivityOut])
+def list_activity(request, limit: int = 20):
+    """The newest items with their steps, for the status table."""
+    limit = max(1, min(limit, MAX_ACTIVITY))
+    return with_related(Item.objects.filter(user=request.user))[:limit]
+
+
 @router.get("/{item_id}", response=ItemOut)
 def get_item_detail(request, item_id: str):
     return get_item(request, item_id)
@@ -114,6 +126,22 @@ def retry_item(request, item_id: str):
     item = get_item(request, item_id)
     fetch_item.defer(item_id=str(item.id))
     return item
+
+
+# One step and everything that depends on it, as a new pass.
+@router.post("/{item_id}/steps/{name}/retry", response={202: ActivityOut})
+def retry_item_step(request, item_id: str, name: str):
+    item = get_item(request, item_id)
+    by_name = {s.name: s for s in item.steps.all()}
+    if name not in by_name or name not in steps.STEPS:
+        raise Http404
+    plan = retry_plan(item, name)
+    if any(steps.state(by_name[n]) in steps.IN_PROGRESS for n in plan if n in by_name):
+        raise HttpError(409, "Already in progress.")
+    run_id = steps.new_run_id()
+    steps.queue(item, name, run_id)
+    retry_step.defer(item_id=str(item.id), name=name, run_id=str(run_id))
+    return Status(202, get_item(request, item_id))
 
 
 @router.delete("/{item_id}", response={204: None})

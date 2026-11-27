@@ -80,6 +80,14 @@ def save_original(item: Item, name: str, url: str, body: bytes, run_id: uuid.UUI
         run.note(mime=mime, bytes=len(body))
 
 
+def recheck(item: Item, run_id: uuid.UUID):
+    """save_original again for an upload: the stored file, checked."""
+    with steps.run(item, "save_original", run_id) as run:
+        source = item.sources.get(kind=ItemSource.Kind.ORIGINAL)
+        body = source.path.read_bytes()
+        run.note(mime=check(body), bytes=len(body))
+
+
 def dimensions(item: Item, run_id: uuid.UUID):
     with steps.run(item, "dimensions", run_id) as run:
         source = item.sources.get(kind=ItemSource.Kind.ORIGINAL)

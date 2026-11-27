@@ -1,12 +1,14 @@
 """Pipeline steps: what each item went through, and how it went.
 
-The pipeline lives in code (fetch, tasks). It adds a step, pending, the
-moment it knows the item needs it, and records every attempt as a run.
-An item's status is derived from its steps, not stored.
+STEPS defines the steps and how they relate. The pipeline itself lives
+in code (fetch, tasks): it adds a step, pending, the moment it knows the
+item needs it, and records every attempt as a run. An item's status is
+derived from its steps, not stored.
 """
 
 import uuid
 from contextlib import contextmanager
+from dataclasses import dataclass
 
 from django.utils import timezone
 
@@ -15,13 +17,66 @@ from apps.items.models import Item, ItemStep, ItemStepRun
 Outcome = ItemStepRun.Outcome
 PENDING = "pending"
 
-# Steps that decide whether an item is usable; the rest are extras whose
-# failure leaves the item done.
-CORE = {"fetch_http", "fetch_browser", "extract", "save_original"}
+
+@dataclass(frozen=True)
+class Step:
+    # Steps whose results this one needs.
+    depends_on: tuple[str, ...] = ()
+    # Decides whether the item is usable: while it's pending, queued or
+    # running, the item is fetching. Other steps are extras whose failure
+    # leaves the item done.
+    core: bool = False
+    # The item type that needs this step ok to be done.
+    required_for: str | None = None
+    # Procrastinate queue its job runs on.
+    queue: str = "default"
+
+
+# In pipeline order: every step comes after the steps it depends on.
+STEPS: dict[str, Step] = {
+    "fetch_http": Step(core=True),
+    "fetch_browser": Step(depends_on=("fetch_http",), core=True),
+    "extract": Step(
+        depends_on=("fetch_http", "fetch_browser"),
+        core=True,
+        required_for=Item.Type.PAGE,
+    ),
+    "images": Step(depends_on=("extract",)),
+    "og_image": Step(depends_on=("extract",)),
+    "tag": Step(depends_on=("extract",), queue="tags"),
+    "save_original": Step(
+        depends_on=("fetch_http",), core=True, required_for=Item.Type.IMAGE
+    ),
+    "dimensions": Step(depends_on=("save_original",)),
+}
+
+CORE = {name for name, step in STEPS.items() if step.core}
 # Per type, the step that must have succeeded.
-REQUIRED = {Item.Type.PAGE: "extract", Item.Type.IMAGE: "save_original"}
+REQUIRED = {
+    step.required_for: name for name, step in STEPS.items() if step.required_for
+}
+ORDER = {name: i for i, name in enumerate(STEPS)}
 # Outcomes that are problems, for the item's error message.
 PROBLEMS = {Outcome.FAILED, Outcome.BLOCKED, Outcome.NO_CONTENT}
+# Not finished yet.
+BUSY = {PENDING, Outcome.QUEUED, Outcome.RUNNING}
+# Picked up: retrying now would run it twice. A pending step can be
+# retried, so one whose job was lost isn't stuck.
+IN_PROGRESS = {Outcome.QUEUED, Outcome.RUNNING}
+
+
+def dependents(name: str) -> list[str]:
+    """Every step that depends on this one, directly or not, in order."""
+    found: set[str] = set()
+    for other, step in STEPS.items():  # in order: dependencies come first
+        if name in step.depends_on or found & set(step.depends_on):
+            found.add(other)
+    return [other for other in STEPS if other in found]
+
+
+def ordered(steps: list[ItemStep]) -> list[ItemStep]:
+    """The item's steps in pipeline order; unknown names last."""
+    return sorted(steps, key=lambda s: (ORDER.get(s.name, len(ORDER)), s.position))
 
 
 def new_run_id() -> uuid.UUID:
@@ -63,14 +118,26 @@ class Run:
         self.finished = True
 
 
+def queue(item: Item, name: str, run_id: uuid.UUID) -> ItemStepRun:
+    """Marks a step as queued for this pass, until its run starts."""
+    (step,) = need(item, name)
+    return ItemStepRun.objects.create(
+        step=step, run_id=run_id, outcome=Outcome.QUEUED, started_at=timezone.now()
+    )
+
+
 @contextmanager
 def run(item: Item, name: str, run_id: uuid.UUID):
     """Records one attempt at a step. Ends ok unless finished otherwise;
-    an exception ends it failed, with the message, and is re-raised."""
+    an exception ends it failed, with the message, and is re-raised. A
+    queued run of this pass becomes this run."""
     (step,) = need(item, name)
-    row = ItemStepRun.objects.create(
-        step=step, run_id=run_id, outcome=Outcome.RUNNING, started_at=timezone.now()
-    )
+    row = step.runs.filter(run_id=run_id, outcome=Outcome.QUEUED).first()
+    if row is None:
+        row = ItemStepRun(step=step, run_id=run_id)
+    row.outcome = Outcome.RUNNING
+    row.started_at = timezone.now()
+    row.save()
     attempt = Run(row)
     try:
         yield attempt
@@ -89,7 +156,7 @@ def latest(step: ItemStep) -> ItemStepRun | None:
 
 
 def state(step: ItemStep) -> str:
-    """pending, or the latest run's outcome."""
+    """pending, or the latest run's outcome (queued, running, ok...)."""
     run_ = latest(step)
     return run_.outcome if run_ else PENDING
 
@@ -101,9 +168,7 @@ def status(item: Item) -> tuple[str, str]:
     if not steps:
         return Item.Status.PENDING, ""
     states = {s.name: state(s) for s in steps}
-    if any(
-        states[name] in (PENDING, Outcome.RUNNING) for name in states if name in CORE
-    ):
+    if any(states[name] in BUSY for name in states if name in CORE):
         return Item.Status.FETCHING, ""
     required = REQUIRED.get(item.type)
     if required and states.get(required) == Outcome.OK:
