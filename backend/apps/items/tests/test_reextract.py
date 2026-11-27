@@ -2,22 +2,24 @@ from datetime import date
 
 from django.core.management import call_command
 
-from apps.items.models import Item
+from apps.items.models import Item, ItemStepRun
 
 EDEN = "01a1a42b-07df-70aa-81c9-8eb4c9cc7688"
 
 
 def test_reextract_fills_metadata_from_saved_html(item_sources_dir, data, capsys, app):
     item = Item.objects.get(id=EDEN)
-    assert item.author == ""
+    assert item.page.author == ""
 
     call_command("reextract")
 
-    item.refresh_from_db()
-    assert item.author == "Terence Eden"
+    item = Item.objects.get(id=EDEN)
+    assert item.page.author == "Terence Eden"
     assert item.site_name == "Terence Eden’s Blog"
     assert item.published_at == date(2026, 11, 3)
-    assert item.markdown
+    assert item.page.markdown
+    runs = ItemStepRun.objects.filter(step__item=item, step__name="extract")
+    assert [r.outcome for r in runs] == ["ok", "ok"]
     assert "Re-extracted 5, skipped 0, failed 0." in capsys.readouterr().out
     jobs = {j["task_name"] for j in app.connector.jobs.values()}
     assert jobs == {"apps.items.tasks.save_images"}

@@ -82,4 +82,4 @@ def test_extract_fills_meta(item):
 
     fetch.extract(item, html)
 
-    assert item.meta == {"og:image": "/i.png"}
+    assert item.page.meta == {"og:image": "/i.png"}

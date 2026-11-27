@@ -6,6 +6,7 @@ import hashlib
 import logging
 import mimetypes
 import re
+from typing import NamedTuple
 from urllib.parse import unquote, urlsplit
 
 import httpx2
@@ -14,7 +15,7 @@ from django.utils.text import slugify
 from lxml import html as lxml_html
 
 from apps.items import cleanup, ids, meta
-from apps.items.models import Item, ItemSource
+from apps.items.models import Item, ItemSource, ItemStepRun
 
 log = logging.getLogger(__name__)
 
@@ -160,7 +161,12 @@ def local_url(item: Item, filename: str) -> str:
     return f"/api/v1/items/{ids.encode(item.id)}/sources/{filename}"
 
 
-def save_image(item: Item, url: str, kind: str = ItemSource.Kind.IMAGE) -> ItemSource:
+def save_image(
+    item: Item,
+    url: str,
+    kind: str = ItemSource.Kind.IMAGE,
+    run: ItemStepRun | None = None,
+) -> ItemSource:
     mime, body = download(url, referer=item.url)
     sha256 = hashlib.sha256(body).hexdigest()
     filename = image_filename(url, mime, sha256)
@@ -175,54 +181,56 @@ def save_image(item: Item, url: str, kind: str = ItemSource.Kind.IMAGE) -> ItemS
         mime=mime,
         size=len(body),
         sha256=sha256,
+        run=run,
     )
 
 
-def save_images(item: Item) -> tuple[int, int]:
+class Saved(NamedTuple):
+    new: int
+    failed: list[str]
+
+
+def save_images(item: Item, run: ItemStepRun | None = None) -> Saved:
     """Downloads the article's images and points its markdown at them.
     Already saved ones aren't downloaded again; failed ones keep their
-    original URL. Returns (saved, failed)."""
+    original URL. Returns how many were new, and the failed URLs."""
+    page = item.page
     saved = {s.url: s for s in item.sources.filter(kind=ItemSource.Kind.IMAGE)}
-    markdown = item.markdown
-    new = failed = 0
+    markdown = page.markdown
+    new, failed = 0, []
     for url in image_urls(markdown):
         source = saved.get(url)
         if source is None or not source.path.exists():
             if source is not None:
                 source.delete()
             try:
-                source = save_image(item, url)
+                source = save_image(item, url, run=run)
                 new += 1
             except Exception as e:
-                failed += 1
+                failed.append(url)
                 log.warning("Image %s for item %s: %s", url, item.pk, e)
                 continue
         markdown = markdown.replace(f"]({url}", f"]({local_url(item, source.filename)}")
-    if markdown != item.markdown:
-        item.markdown = markdown
-        item.save(update_fields=["markdown"])
-    og_new, og_failed = save_og_image(item)
-    return new + og_new, failed + og_failed
+    if markdown != page.markdown:
+        page.markdown = markdown
+        page.save(update_fields=["markdown"])
+    return Saved(new, failed)
 
 
-def save_og_image(item: Item) -> tuple[int, int]:
+def save_og_image(item: Item, run: ItemStepRun | None = None) -> str:
     """Downloads the page's sharing image, unless the same URL is already
-    saved. A new URL replaces the old file; a failed download keeps it.
-    Returns (saved, failed)."""
-    url = meta.image_url(item.meta, item.url)
+    saved. A new URL replaces the old file; a failed download raises and
+    keeps it. Returns "none" (the page has none), "kept" or "saved"."""
+    url = meta.image_url(item.page.meta, item.url)
     if not url:
-        return 0, 0
+        return "none"
     old = item.sources.filter(kind=ItemSource.Kind.OG_IMAGE).first()
     if old and old.url == url and old.path.exists():
-        return 0, 0
-    try:
-        save_image(item, url, ItemSource.Kind.OG_IMAGE)
-    except Exception as e:
-        log.warning("Sharing image %s for item %s: %s", url, item.pk, e)
-        return 0, 1
+        return "kept"
+    save_image(item, url, ItemSource.Kind.OG_IMAGE, run)
     if old:
         # Another source may share the file: same content, same name.
         if not item.sources.filter(filename=old.filename).exclude(pk=old.pk).exists():
             old.path.unlink(missing_ok=True)
         old.delete()
-    return 1, 0
+    return "saved"

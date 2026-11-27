@@ -1,7 +1,7 @@
 import pytest
 
-from apps.items import fetch, tagging
-from apps.items.models import Item, ItemTag, ItemTagRemoval, Tag
+from apps.items import fetch, steps, tagging
+from apps.items.models import Item, ItemTag, ItemTagRemoval, PageItem, Tag
 
 PAGE = ItemTag.Source.PAGE
 MODEL = ItemTag.Source.MODEL
@@ -111,6 +111,7 @@ def test_auto_source_keeps_manual(item):
 
 def test_extract_returns_page_tags():
     item = Item(url="https://example.com/indexes")
+    PageItem(item=item)
 
     assert fetch.extract(item, TAGGED_HTML) == [
         "postgres",
@@ -130,7 +131,7 @@ def test_fetch_adds_page_tags(user, item_sources_dir, monkeypatch):
         ),
     )
 
-    fetch.fetch(item)
+    fetch.fetch(item, steps.new_run_id())
 
     assert tags_of(item) == {
         "postgres": PAGE,

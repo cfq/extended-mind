@@ -71,12 +71,13 @@ FOOTNOTED = (
 
 def test_footnotes_link_within_the_article():
     from apps.items import fetch
-    from apps.items.models import Item
+    from apps.items.models import Item, PageItem
 
     item = Item(url=URL)
+    page = PageItem(item=item)
     fetch.extract(item, FOOTNOTED)
 
-    markdown = item.markdown
+    markdown = page.markdown
     # Reference → note, and the note's back-link → reference.
     assert "felt[](#anchor:fn-1-link)[¹](#fn-1)" in markdown
     assert "[](#anchor:fn-1)Guattari and Rolnik" in markdown
@@ -84,8 +85,8 @@ def test_footnotes_link_within_the_article():
     # Other pages keep their URL; a link to a missing id is still local.
     assert "](https://site.test/other/#top)" in markdown
     assert "](#missing)" in markdown
-    assert "anchor" not in item.text
-    assert "⁅" not in item.text
+    assert "anchor" not in page.text
+    assert "⁅" not in page.text
 
 
 def test_local_links_only_for_this_page():

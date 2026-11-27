@@ -181,6 +181,18 @@ button.danger {
   overflow-wrap: anywhere;
 }
 
+/* Interim, until the card redesign: aspect ratio kept, at most 150px wide. */
+.item-thumbnail {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.item-thumbnail img {
+  display: block;
+  max-width: 150px;
+  height: auto;
+}
+
 .item-description {
   margin-top: 0.25rem;
   color: var(--muted);
@@ -207,6 +219,16 @@ button.danger {
 
 .main .card + .card {
   margin-top: 1rem;
+}
+
+.upload-dragging {
+  outline: 2px dashed var(--accent);
+  outline-offset: -6px;
+}
+
+.upload-files {
+  color: var(--muted);
+  overflow-wrap: anywhere;
 }
 
 /* Looks like a button so it's obvious what to drag. */
@@ -530,6 +552,20 @@ body:has(.reading) {
   font-size: 1.2em;
   line-height: 1.4;
   text-wrap: pretty;
+}
+
+.reading-image {
+  margin: 1.5rem 0;
+}
+
+.reading-image img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.reading-image figcaption {
+  margin-top: 0.5rem;
 }
 
 .reading-body > :first-child {

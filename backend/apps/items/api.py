@@ -3,13 +3,13 @@ from django.core.validators import URLValidator
 from django.db.models import Count
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
-from ninja import Router, Status
+from ninja import File, Form, Router, Status, UploadedFile
 from ninja.errors import HttpError
 from ninja.security import django_auth
 
-from apps.items import ids, tagging
+from apps.items import ids, image_items, steps, tagging
 from apps.items.fetch import clean_url
-from apps.items.models import Item, ItemSource, ItemTag, Tag
+from apps.items.models import ImageItem, Item, ItemSource, ItemTag, Tag
 from apps.items.schemas import (
     ItemIn,
     ItemOut,
@@ -19,7 +19,7 @@ from apps.items.schemas import (
     TagOut,
     item_tags,
 )
-from apps.items.tasks import fetch_item
+from apps.items.tasks import fetch_item, process_upload
 from apps.users.auth import token_auth
 
 # Bearer token for the iOS Shortcut and scripts, session for the SPA.
@@ -27,23 +27,30 @@ router = Router(auth=[token_auth, django_auth])
 tags_router = Router(auth=[token_auth, django_auth])
 
 
+def with_related(items):
+    # Tags, steps and runs (status), sources (thumbnail): a query each.
+    return items.prefetch_related("item_tags__tag", "steps__runs", "sources")
+
+
 def get_item(request, item_id: str) -> Item:
     # Unknown, malformed and other users' IDs all look the same: 404.
     uuid = ids.decode(item_id)
     if uuid is None:
         raise Http404
-    return get_object_or_404(
-        Item.objects.prefetch_related("item_tags__tag"), id=uuid, user=request.user
-    )
+    return get_object_or_404(with_related(Item.objects), id=uuid, user=request.user)
+
+
+def valid_url(url: str, message: str) -> str:
+    try:
+        URLValidator(schemes=["http", "https"])(url)
+    except ValidationError as e:
+        raise HttpError(400, message) from e
+    return url
 
 
 @router.post("", response={201: ItemOut})
 def create_item(request, data: ItemIn):
-    submitted = data.url.strip()
-    try:
-        URLValidator(schemes=["http", "https"])(submitted)
-    except ValidationError as e:
-        raise HttpError(400, "Enter a valid http(s) URL.") from e
+    submitted = valid_url(data.url.strip(), "Enter a valid http(s) URL.")
     item = Item.objects.create(
         user=request.user, url=clean_url(submitted), url_submitted=submitted
     )
@@ -51,9 +58,46 @@ def create_item(request, data: ItemIn):
     return Status(201, item)
 
 
+@router.post("/images", response={201: list[ItemOut]})
+def upload_images(
+    request,
+    file: File[list[UploadedFile]],
+    found_on: Form[str | None] = None,
+):
+    """One image item per file. All files are checked before any is saved."""
+    if found_on := (found_on or "").strip() or None:
+        valid_url(found_on, "Found on: enter a valid http(s) URL.")
+    bodies = []
+    for upload in file:
+        if upload.size > image_items.MAX_BYTES:
+            raise HttpError(400, f"{upload.name}: larger than 50 MB.")
+        body = upload.read()
+        try:
+            image_items.check(body)
+        except image_items.NotAnImage as e:
+            raise HttpError(400, f"{upload.name}: {e}") from e
+        bodies.append((upload.name or "image", body))
+    created = []
+    for name, body in bodies:
+        run_id = steps.new_run_id()
+        item = Item.objects.create(
+            user=request.user,
+            type=Item.Type.IMAGE,
+            title=image_items.title_from(name),
+            found_on=found_on,
+        )
+        ImageItem.objects.create(item=item)
+        steps.need(item, "save_original", "dimensions")
+        image_items.save_original(item, name, "", body, run_id)
+        process_upload.defer(item_id=str(item.id), run_id=str(run_id))
+        created.append(item.id)
+    items = with_related(Item.objects).filter(id__in=created).order_by("created_at")
+    return Status(201, list(items))
+
+
 @router.get("", response=list[ItemSummaryOut])
 def list_items(request, tag: str | None = None):
-    items = Item.objects.filter(user=request.user).prefetch_related("item_tags__tag")
+    items = with_related(Item.objects.filter(user=request.user))
     if tag:
         items = items.filter(item_tags__tag__slug=tag)
     return items
@@ -64,12 +108,10 @@ def get_item_detail(request, item_id: str):
     return get_item(request, item_id)
 
 
+# A new pass through the whole pipeline. Not in the UI yet.
 @router.post("/{item_id}/retry", response=ItemOut)
 def retry_item(request, item_id: str):
     item = get_item(request, item_id)
-    item.status = Item.Status.PENDING
-    item.error = ""
-    item.save(update_fields=["status", "error"])
     fetch_item.defer(item_id=str(item.id))
     return item
 
@@ -87,10 +129,11 @@ SERVED_KINDS = [
     ItemSource.Kind.SCREENSHOT_HEAD,
     ItemSource.Kind.PDF,
     ItemSource.Kind.OG_IMAGE,
+    ItemSource.Kind.ORIGINAL,
 ]
 
 
-# Saved article images, screenshots and PDFs. Their URLs are stored in item markdown
+# Saved images, screenshots and PDFs. Article image URLs are stored in item markdown
 # (images.local_url): keep this path stable.
 @router.get("/{item_id}/sources/{filename}")
 def get_item_source(request, item_id: str, filename: str):

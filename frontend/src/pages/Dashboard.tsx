@@ -32,6 +32,11 @@ export function Dashboard() {
       <ul className="items">
         {items.map((item) => (
           <li key={item.id}>
+            {item.thumbnail && (
+              <Link to={`/item/${item.id}`} className="item-thumbnail" tabIndex={-1}>
+                <img src={item.thumbnail} alt="" loading="lazy" />
+              </Link>
+            )}
             <Link to={`/item/${item.id}`} className="item-title">
               {displayTitle(item)}
             </Link>

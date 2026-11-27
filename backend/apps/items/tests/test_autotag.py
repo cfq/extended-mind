@@ -85,7 +85,7 @@ def test_no_text_or_no_server_skips_model(item, replies, settings):
     assert autotag.suggest(item) == []
 
     settings.OLLAMA_URL = "http://ollama:11434"
-    item.text = " "
+    item.page.text = " "
     assert autotag.suggest(item) == []
     assert prompts == []
 

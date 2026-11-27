@@ -7,8 +7,8 @@ from urllib.parse import parse_qs, urlsplit
 import httpx2
 import pytest
 
-from apps.items import fetch
-from apps.items.models import Item, ItemSource
+from apps.items import fetch, steps
+from apps.items.models import Item, ItemSource, PageItem
 
 HANDLES = "01a1a417-604d-7679-9ecf-8b8932f3091c"
 EDEN = "01a1a42b-07df-70aa-81c9-8eb4c9cc7688"
@@ -135,6 +135,10 @@ def test_download_http_error(transport):
 # fetch: download patched, trafilatura for real on fixture HTML
 
 
+def go(item):
+    fetch.fetch(item, steps.new_run_id())
+
+
 @pytest.fixture
 def downloads(monkeypatch):
     """Make download() return the given values: downloads(url, mime, body)."""
@@ -157,15 +161,16 @@ def test_fetch_html(user, item_sources_dir, downloads, fixture_html):
         body=body,
     )
 
-    fetch.fetch(item)
+    go(item)
 
-    item.refresh_from_db()
-    assert item.status == Item.Status.DONE
+    item = Item.objects.get(pk=item.pk)
+    assert steps.status(item)[0] == Item.Status.DONE
+    assert item.type == Item.Type.PAGE
     assert item.url == "https://floooh.github.io/2018/06/17/handles-vs-pointers.html"
     assert item.title == "Handles are the better pointers"
     assert item.description
-    assert item.markdown
-    assert item.text
+    assert item.page.markdown
+    assert item.page.text
     assert item.fetched_at
 
     (source,) = item.sources.all()
@@ -180,12 +185,13 @@ def test_fetch_non_html(user, item_sources_dir, downloads):
     item = Item.objects.create(user=user, url="https://x.test", url_submitted="x")
     downloads("https://example.com/a.pdf", mime="application/pdf")
 
-    fetch.fetch(item)
+    with pytest.raises(fetch.FetchError):
+        go(item)
 
-    item.refresh_from_db()
-    assert item.status == Item.Status.DONE
-    assert item.url == "https://example.com/a.pdf"
-    assert not item.markdown
+    item = Item.objects.get(pk=item.pk)
+    assert steps.status(item)[0] == Item.Status.FAILED
+    assert item.type == ""
+    assert not PageItem.objects.filter(item=item).exists()
     assert not item.sources.exists()
     assert not item.sources_dir.exists()
 
@@ -195,7 +201,7 @@ def test_fetch_no_content(user, item_sources_dir, downloads):
     downloads("https://example.com/", body=b"<html><body></body></html>")
 
     with pytest.raises(fetch.FetchError):
-        fetch.fetch(item)
+        go(item)
 
 
 def test_fetch_retry_replaces_source(item, item_sources_dir, downloads, fixture_html):
@@ -204,7 +210,7 @@ def test_fetch_retry_replaces_source(item, item_sources_dir, downloads, fixture_
     assert old_path.exists()
     downloads(item.url, body=fixture_html(HANDLES))
 
-    fetch.fetch(item)
+    go(item)
 
     (new,) = item.sources.all()
     assert new.pk != old.pk
@@ -218,10 +224,10 @@ def test_fetch_metadata(user, item_sources_dir, downloads, fixture_html):
         "https://shkspr.mobi/blog/2026/11/ai-resistance/", body=fixture_html(EDEN)
     )
 
-    fetch.fetch(item)
+    go(item)
 
-    item.refresh_from_db()
-    assert item.author == "Terence Eden"
+    item = Item.objects.get(pk=item.pk)
+    assert item.page.author == "Terence Eden"
     assert item.site_name == "Terence Eden’s Blog"
     assert item.published_at == date(2026, 11, 3)
 
